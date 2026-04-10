@@ -1,3 +1,5 @@
+[![](https://jitpack.io/v/dev.jidouka/jidouka.svg)](https://jitpack.io/#dev.jidouka/jidouka)
+
 # JidouKa
 
 JidouKa is a Kotlin library for writing smart home automations and interacting with Home Assistant. Writing automations
@@ -76,6 +78,21 @@ The optional `conditions` block has one time condition. The actions block will o
 this case we use delay to wait 2 minutes. We then log to the console hello world in Japanese.
 
 Finally, we start the JidouKa application with the `JidoukaApplication` returned from the initialize function.
+
+## Installation
+
+```kotlin
+repositories {
+    // ...
+    maven { url = uri("https://jitpack.io") }
+}
+```
+
+```kotlin
+dependencies {
+    implementation("dev.jidouka:jidouka:0.1.0")
+}
+```
 
 ## Roadmap
 
