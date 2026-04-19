@@ -276,6 +276,114 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
         }
     }
 
+    /**
+     * Trigger from an external [Flow]
+     *
+     * This is used for flows that JidouKa does not own directly
+     *
+     * **Do not pass entity flows directly.** They will not be properly registered in JidouKa
+     * Use functions like [state],[combineState], and [observe] to ensure entities are properly subscribed
+     *
+     * @param source The external flow to trigger from
+     * @param label Optional label for identifying the flow from a [TriggerContext.Flow]
+     * @param distinctUntilChanged If true (default), only trigger when [predicate] result changes.
+     * @param data Optional lambda for modifying the value from the flow. By default, the raw emitted value is passed to the
+     * [TriggerContext.Flow.data]
+     * @param predicate Function returning true when the automation should trigger
+     */
+    public fun <T> flow(
+        source: Flow<T>,
+        label: String? = null,
+        distinctUntilChanged: Boolean = true,
+        data: ((T) -> Any?)? = null,
+        predicate: suspend (T) -> Boolean
+    ) {
+        val triggerFlow = buildFlowTrigger(
+            source = source,
+            label = label,
+            distinctUntilChanged = distinctUntilChanged,
+            data = data,
+            predicate = predicate
+        )
+
+        triggers.add(triggerFlow)
+    }
+
+    /**
+     * Trigger from an external [SharedFlow] with startup evaluation support
+     *
+     * When the automation has `runOnStartup = true`, the replay cache is evaluated at registration time. If the predicate is true,
+     * the automation triggers immediately
+     *
+     * This is used for flows that JidouKa does not own directly
+     *
+     * **Do not pass entity flows directly.** They will not be properly registered in JidouKa
+     * Use functions like [state],[combineState], and [observe] to ensure entities are properly subscribed
+     *
+     * @param source The external flow to trigger from
+     * @param label Optional label for identifying the flow from a [TriggerContext.Flow]
+     * @param distinctUntilChanged If true (default), only trigger when [predicate] result changes.
+     * @param data Optional lambda for modifying the value from the flow. By default, the raw emitted value is passed to the
+     * [TriggerContext.Flow.data]
+     * @param predicate Function returning true when the automation should trigger
+     */
+    public fun <T> sharedFlow(
+        source: SharedFlow<T>,
+        label: String? = null,
+        distinctUntilChanged: Boolean = true,
+        data: ((T) -> Any?)? = null,
+        predicate: suspend (T) -> Boolean
+    ) {
+        val triggerFlow = buildFlowTrigger(
+            source = source,
+            label = label,
+            distinctUntilChanged = distinctUntilChanged,
+            data = data,
+            predicate = predicate
+        )
+
+        triggers.add(triggerFlow)
+
+        startupEvaluators.add {
+            val current: T = source.replayCache.lastOrNull() ?: return@add null
+
+            if (predicate(current)) {
+                TriggerContext.Flow(
+                    label = label,
+                    data = data?.invoke(current) ?: current
+                )
+            } else {
+                null
+            }
+        }
+    }
+
+    private fun <T> buildFlowTrigger(
+        source: Flow<T>,
+        label: String?,
+        distinctUntilChanged: Boolean,
+        data: ((T) -> Any?)? = null,
+        predicate: suspend (T) -> Boolean
+    ): Flow<TriggerContext.Flow> {
+        return source
+            .let {
+                if (distinctUntilChanged) {
+                    it.distinctUntilChanged()
+                } else {
+                    it
+                }
+            }.mapNotNull { value ->
+                if (predicate(value)) {
+                    TriggerContext.Flow(
+                        label = label,
+                        data = data?.invoke(value) ?: value
+                    )
+                } else {
+                    null
+                }
+            }
+    }
+
     internal fun addEntityIds(entities: List<Entity<*>>) {
         entities.forEach {
             addEntityId(it)

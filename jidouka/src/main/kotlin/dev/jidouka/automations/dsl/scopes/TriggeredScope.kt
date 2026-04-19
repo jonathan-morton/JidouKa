@@ -62,6 +62,17 @@ public class TriggeredScope internal constructor(
     //region Time
     public fun byTime(): Boolean = context is TriggerContext.Time
     //endregion
+
+    //region Flow
+    public fun byFlow(): Boolean {
+        return context is TriggerContext.Flow
+    }
+
+    public fun byFlow(label: String): Boolean {
+        val flowContext = context as? TriggerContext.Flow ?: return false
+        return flowContext.label == label
+    }
+    //endregion
     //endregion
 
     //region data triggers
@@ -161,6 +172,28 @@ public class TriggeredScope internal constructor(
     public fun time(): Instant? {
         return (context as? TriggerContext.Time)?.triggeredAt
     }
+
+    //region Flow
+    /**
+     * Returns the flow trigger context if the automation was triggered by a flow trigger.
+     */
+    public fun flow(): TriggerContext.Flow? {
+        return context as? TriggerContext.Flow
+    }
+
+    /**
+     * Returns the flow trigger context if the automation was triggered by a flow trigger and the label matches.
+     */
+    public fun flow(label: String): TriggerContext.Flow? {
+        val flowContext = flow() ?: return null
+
+        return if (flowContext.label == label) {
+            flowContext
+        } else {
+            null
+        }
+    }
+    //endregion
     //endregion
 
     private fun resolveStateTransition(entity: Entity<*>): StateTransition? = when (context) {
@@ -179,7 +212,8 @@ public class TriggeredScope internal constructor(
         }
 
         is TriggerContext.Event,
-        is TriggerContext.Time -> null
+        is TriggerContext.Time,
+        is TriggerContext.Flow -> null
     }
 
     private fun resolveSingleStateTransition(triggerContext: TriggerContext): StateTransition? {
