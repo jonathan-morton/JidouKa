@@ -84,22 +84,23 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
         predicate: suspend (S?) -> Boolean
     ) {
         val triggerFlow: Flow<TriggerContext.StateContext.State> = entity.changeFlow
-            .mapNotNull { transition ->
+            .map { transition ->
                 val state = entity.parseTransition(transition)
 
                 val predicateIsTrue = predicate(state)
-
-                if (predicateIsTrue) {
-                    TriggerContext.StateContext.State(transition)
-                } else {
-                    null
-                }
+                return@map Pair(predicateIsTrue, transition)
             }.let {
                 if (distinctUntilChanged) {
-                    it.distinctUntilChanged()
+                    it.distinctUntilChanged { previous: Pair<Boolean, StateTransition>, new: Pair<Boolean, StateTransition> ->
+                        previous.first == new.first
+                    }
                 } else {
                     it
                 }
+            }.filter { (predicateIsTrue, _) ->
+                predicateIsTrue
+            }.map { (_, transition) ->
+                TriggerContext.StateContext.State(transition)
             }
 
         triggers.add(triggerFlow)
@@ -242,17 +243,20 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
                     ?: return@mapNotNull null
             }.toTypedArray()
 
-            if (predicate(transitions)) {
-                TriggerContext.StateContext.States(transitions.toList())
-            } else {
-                null
-            }
+            val predicateIsTrue = predicate(transitions)
+            return@mapNotNull Pair(predicateIsTrue, transitions.toList())
         }.let {
             if (distinctUntilChanged) {
-                it.distinctUntilChanged()
+                it.distinctUntilChanged { previous, new ->
+                    previous.first == new.first
+                }
             } else {
                 it
             }
+        }.filter { (predicateIsTrue, _) ->
+            predicateIsTrue
+        }.map { (_, transitions: List<StateTransition>) ->
+            TriggerContext.StateContext.States(transitions)
         }
 
         triggers.add(triggerFlow)
