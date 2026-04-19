@@ -9,6 +9,10 @@ import dev.jidouka.test.RecordedEvent
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -499,5 +503,167 @@ class FlowTriggerTests : BaseUnitTest() {
             assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
         }
     }
+    // endregion
+
+    // region observe() trigger tests
+
+    @Test
+    fun `observe registers entity for subscription`() = runTest {
+        val temperatureId = "sensor.temperature"
+        var triggerCount = 0
+
+        val `react to observed temperature changes` = Jidouka.automation(
+            id = "observe_subscription",
+            mode = AutomationMode.Parallel(10)
+        ) {
+            val temperatureEntity = entity(temperatureId)
+            triggers {
+                val temperature = observe(temperatureEntity)
+                flow(temperature) { it != null }
+            }
+            actions {
+                triggerCount++
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            env.register(`react to observed temperature changes`)
+
+            env.emitState(temperatureId, "22.0")
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(1, triggerCount)
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
+        }
+    }
+
+    @Test
+    fun `observe returns parsed state changes`() = runTest {
+        val temperatureId = "sensor.temperature"
+        var capturedData: Any? = null
+
+        val `capture parsed state from observed entity` = Jidouka.automation(
+            id = "observe_parsed_state",
+            mode = AutomationMode.Single
+        ) {
+            val temperatureEntity = entity(temperatureId)
+            triggers {
+                val temperature = observe(temperatureEntity).mapNotNull { it?.state }
+                flow(temperature) { it.isNotEmpty() }
+            }
+            actions {
+                capturedData = triggered.flow()?.data
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            env.register(`capture parsed state from observed entity`)
+
+            val temperatureState = "25.5"
+            env.emitState(temperatureId, temperatureState)
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(temperatureState, capturedData)
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
+        }
+    }
+
+    @Test
+    fun `observe with rolling average triggers on threshold`() = runTest {
+        val temperatureId = "sensor.outside_temp"
+        var capturedAverage: Any? = null
+
+        val `alert when rolling average exceeds threshold` = Jidouka.automation(
+            id = "rolling_avg_temp",
+            mode = AutomationMode.Single
+        ) {
+            val temperatureEntity = entity(temperatureId)
+            triggers {
+                val rollingAvg = observe(temperatureEntity)
+                    .mapNotNull { it?.state?.toDoubleOrNull() }
+                    .runningFold(emptyList<Double>()) { window, v -> (window + v).takeLast(3) }
+                    .map {
+                        if (it.isEmpty()) {
+                            0.0
+                        } else {
+                            it.average()
+                        }
+                    }
+
+                flow(rollingAvg) { avg -> avg > 30.0 }
+            }
+            actions {
+                capturedAverage = triggered.flow()?.data
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            env.register(`alert when rolling average exceeds threshold`)
+
+            env.emitState(temperatureId, "25.0")
+            testScheduler.advanceUntilIdle()
+            assertNull(capturedAverage)
+
+            env.emitState(temperatureId, "28.0")
+            testScheduler.advanceUntilIdle()
+            assertNull(capturedAverage)
+
+            env.emitState(temperatureId, "40.0")
+            testScheduler.advanceUntilIdle()
+
+            assertNotNull(capturedAverage)
+            assertEquals(31.0, capturedAverage as Double, 0.01)
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
+        }
+    }
+
+    @Test
+    fun `observe multiple entities combined with stdlib combine`() = runTest {
+        val temperatureId = "sensor.temperature"
+        val humidityId = "sensor.humidity"
+
+        val `alert on high heat index from combined observations` = Jidouka.automation(
+            id = "heat_index_alert",
+            mode = AutomationMode.Single
+        ) {
+            val temperatureEntity = entity(temperatureId)
+            val humidityEntity = entity(humidityId)
+            triggers {
+                val temperature = observe(temperatureEntity).mapNotNull { it?.state?.toDoubleOrNull() }
+                val humidity = observe(humidityEntity).mapNotNull { it?.state?.toDoubleOrNull() }
+
+                val heatIndex = combine(temperature, humidity) { t, h ->
+                    t + (0.5 * h)
+                }
+
+                flow(heatIndex) { it > 100.0 }
+            }
+            actions {
+                actions.call("notify", "mobile_app", data = mapOf("message" to "Heat index high")) {
+                    entity("notify.mobile_app")
+                }
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            env.register(`alert on high heat index from combined observations`)
+
+            env.emitState(temperatureId, "80.0")
+            testScheduler.advanceUntilIdle()
+            assertTrue(env.events<RecordedEvent.Action>().isEmpty())
+
+            env.emitState(humidityId, "30.0")
+            testScheduler.advanceUntilIdle()
+            assertTrue(env.events<RecordedEvent.Action>().isEmpty())
+
+            env.emitState(humidityId, "50.0")
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+            assertEquals("notify", env.events<RecordedEvent.Action>()[0].domainId)
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
+        }
+    }
+
     // endregion
 }

@@ -276,6 +276,13 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
         }
     }
 
+    public fun <S : BaseState<S>> observe(entity: Entity<S>): Flow<S?> {
+        addEntityId(entity)
+        return entity.changeFlow.map {
+            entity.parseTransition(it)
+        }
+    }
+
     /**
      * Trigger from an external [Flow]
      *
