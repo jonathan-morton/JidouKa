@@ -17,6 +17,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class StateTriggerTests : BaseUnitTest() {
@@ -571,7 +572,11 @@ class StateTriggerTests : BaseUnitTest() {
             id = "motion_light",
             mode = AutomationMode.Restart
         ) {
-            triggers { state(entity(hallwayId)) { it?.state == "on" } }
+            triggers {
+                state(entity(hallwayId)) {
+                    it?.state == "on"
+                }
+            }
             actions {
                 actions.call("light", "turn_on") {
                     entity(hallwayLightId)
@@ -590,6 +595,7 @@ class StateTriggerTests : BaseUnitTest() {
 
             env.advanceClock(2.minutes)
 
+            env.emitState(hallwayId, "off")
             env.emitState(hallwayId, "on")
 
             env.advanceClock(5.minutes)
@@ -597,9 +603,80 @@ class StateTriggerTests : BaseUnitTest() {
             assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
             val completions = env.events<RecordedEvent.AutomationCompleted>()
             assertTrue("Expected at least one cancelled completion", completions.any { it.cancelled })
-            assertTrue("Expected at least one non-cancelled completion", completions.any { !it.cancelled })
+            assertTrue("Expected at least one non-cancelled completion", completions.any { it.cancelled.not() })
         }
     }
+
+    @Test
+    fun `state trigger with distinctUntilChanged suppresses re-fire when predicate result unchanged`() = runTest {
+        val sensorId = "sensor.temperature"
+        val fanId = "switch.fan"
+
+        val `turn on fan when temperature state is hot` = Jidouka.automation(
+            id = "temp_fan",
+            mode = AutomationMode.Parallel(5)
+        ) {
+            triggers {
+                state(entity = entity(sensorId)) { it?.state == "hot" }
+            }
+            actions {
+                actions.call("switch", "turn_on") { entity(fanId) }
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            env.register(`turn on fan when temperature state is hot`)
+
+            env.emitState(sensorId, "hot")
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+
+            env.advanceClock(1.seconds)
+
+            env.emitState(sensorId, "hot")
+
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+        }
+    }
+
+    @Test
+    fun `combineState trigger with distinctUntilChanged suppresses re-fire when predicate result unchanged`() =
+        runTest {
+            val tempId = "sensor.temperature"
+            val humidityId = "sensor.humidity"
+            val fanId = "switch.fan"
+
+            val `turn on fan when temperature is hot` = Jidouka.automation(
+                id = "combined_fan",
+                mode = AutomationMode.Parallel(5)
+            ) {
+                triggers {
+                    combineState(
+                        entity1 = entity(tempId),
+                        entity2 = entity(humidityId)
+                    ) { temp, _ ->
+                        (temp?.state?.toDoubleOrNull() ?: 0.0) > 70.0
+                    }
+                }
+                actions {
+                    actions.call("switch", "turn_on") { entity(fanId) }
+                }
+            }
+
+            AutomationTestEnvironment.test(this) { env ->
+                env.register(`turn on fan when temperature is hot`)
+
+                env.emitState(humidityId, "50.0")
+                assertTrue(env.events<RecordedEvent.Action>().isEmpty())
+                env.emitState(tempId, "75.0")
+                assertEquals(1, env.events<RecordedEvent.Action>().size)
+
+                env.advanceClock(1.seconds)
+
+                env.emitState(humidityId, "80.0")
+
+                assertEquals(1, env.events<RecordedEvent.Action>().size)
+            }
+        }
 
     @Test
     fun `unhandled action exception records AutomationFailed event`() = runTest {
