@@ -42,4 +42,16 @@ public sealed class TriggerContext {
     public data class Time(
         val triggeredAt: Instant
     ) : TriggerContext()
+
+    /**
+     * Context for a trigger fired by a flow source
+     *
+     * @property label Optional label used to identify the flow that triggered the automation
+     * @property data The emitted value from the flow. Can also be extracted data from the flow.
+     * Type erased, so needs to be safe casts
+     */
+    public data class Flow(
+        val label: String? = null,
+        val data: Any? = null
+    ) : TriggerContext()
 }
