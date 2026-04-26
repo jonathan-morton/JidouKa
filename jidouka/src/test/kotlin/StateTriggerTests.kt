@@ -10,7 +10,10 @@ import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.Month
 import kotlinx.datetime.toLocalDateTime
 import kotlin.math.abs
 import kotlin.test.Test
@@ -395,6 +398,7 @@ class StateTriggerTests : BaseUnitTest() {
                     }
                 }
             }
+
             actions {
                 actions.call(
                     "notify", "mobile_app",
@@ -700,6 +704,263 @@ class StateTriggerTests : BaseUnitTest() {
             assertEquals("faulty", failures[0].automationId)
             assertIs<IllegalStateException>(failures[0].exception)
             assertTrue(env.events<RecordedEvent.Action>().isEmpty())
+        }
+    }
+
+    @Test
+    fun `time isBetween LocalTime in trigger predicate gates trigger on time of day`() = runTest {
+        val motionId = "binary_sensor.porch_motion"
+        val lightId = "light.porch"
+
+        val `turn on porch light on motion at night` = Jidouka.automation(
+            id = "porch_night_light",
+            mode = AutomationMode.Single
+        ) {
+            triggers {
+                state(entity = entity(motionId)) {
+                    it?.state == "on" && time.isBetween(LocalTime(22, 0), LocalTime(6, 0))
+                }
+            }
+            actions {
+                actions.call("light", "turn_on") {
+                    entity(lightId)
+                }
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            val dayTime = LocalDateTime(2025, 3, 8, 14, 0)
+            env.setClockTime(dayTime)
+            env.register(`turn on porch light on motion at night`)
+
+            env.emitState(motionId, "on")
+            assertTrue(env.events<RecordedEvent.Action>().isEmpty())
+
+            env.clearEvents()
+
+            // Nighttime - should trigger
+            val nightTime = LocalDateTime(2025, 3, 8, 23, 0)
+            env.setClockTime(nightTime)
+            env.emitState(motionId, "off")
+            env.emitState(motionId, "on")
+
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+            assertEquals("light", env.events<RecordedEvent.Action>()[0].domainId)
+            assertEquals("turn_on", env.events<RecordedEvent.Action>()[0].action)
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
+        }
+    }
+
+    @Test
+    fun `time isBetween LocalTime with non-wrapping range in trigger predicate`() = runTest {
+        val presenceId = "binary_sensor.office_presence"
+        val sceneId = "scene.office_mode"
+
+        val `activate office mode during work hours` = Jidouka.automation(
+            id = "office_mode",
+            mode = AutomationMode.Single
+        ) {
+            triggers {
+                state(entity = entity(presenceId)) {
+                    it?.state == "home" && time.isBetween(LocalTime(9, 0), LocalTime(17, 0))
+                }
+            }
+            actions {
+                actions.call("scene", "turn_on") {
+                    entity(sceneId)
+                }
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            val outsideWorkHours = LocalDateTime(2025, 3, 8, 20, 0)
+            env.setClockTime(outsideWorkHours)
+            env.register(`activate office mode during work hours`)
+
+            env.emitState(presenceId, "home")
+            assertTrue(env.events<RecordedEvent.Action>().isEmpty())
+
+            env.clearEvents()
+
+            // Midday - within work hours
+            val workHours = LocalDateTime(2025, 3, 8, 12, 0)
+            env.setClockTime(workHours)
+            env.emitState(presenceId, "away")
+            env.emitState(presenceId, "home")
+
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+            assertEquals("scene", env.events<RecordedEvent.Action>()[0].domainId)
+            assertEquals("turn_on", env.events<RecordedEvent.Action>()[0].action)
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
+        }
+    }
+
+    @Test
+    fun `time isBetween DayOfWeek in trigger predicate restricts trigger to weekdays`() = runTest {
+        val alarmId = "binary_sensor.alarm_dismissed"
+        val notifyId = "notify.mobile_app"
+
+        val `send morning briefing on weekdays` = Jidouka.automation(
+            id = "weekday_briefing",
+            mode = AutomationMode.Single
+        ) {
+            triggers {
+                state(entity = entity(alarmId)) {
+                    it?.state == "dismissed" && time.isBetween(DayOfWeek.MONDAY, DayOfWeek.FRIDAY)
+                }
+            }
+            actions {
+                actions.call("notify", "mobile_app", data = mapOf("message" to "Good morning")) {
+                    entity(notifyId)
+                }
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            env.setClockTime(LocalDateTime(2025, 3, 8, 7, 0)) // March 8, 2025 is a Saturday
+            env.register(`send morning briefing on weekdays`)
+
+            env.emitState(alarmId, "dismissed")
+            assertTrue(env.events<RecordedEvent.Action>().isEmpty())
+
+            env.clearEvents()
+
+            env.setClockTime(LocalDateTime(2025, 3, 5, 7, 0)) // March 5, 2025 is a Wednesday
+            env.emitState(alarmId, "active")
+            env.emitState(alarmId, "dismissed")
+
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+            assertEquals("notify", env.events<RecordedEvent.Action>()[0].domainId)
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
+        }
+    }
+
+    @Test
+    fun `time isBetween Month pair in trigger predicate restricts trigger to season`() = runTest {
+        val thermostatId = "climate.living_room"
+        val scheduleId = "switch.heating_schedule"
+
+        val `enable heating schedule in winter` = Jidouka.automation(
+            id = "winter_heating",
+            mode = AutomationMode.Single
+        ) {
+            triggers {
+                state(entity = entity(thermostatId)) {
+                    it?.state == "heat" && time.isBetween(Month.NOVEMBER to 1, Month.FEBRUARY to 28)
+                }
+            }
+            actions {
+                actions.call("switch", "turn_on") {
+                    entity(scheduleId)
+                }
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            val summerTime = LocalDateTime(2025, 6, 1, 8, 0)
+            env.setClockTime(summerTime)
+            env.register(`enable heating schedule in winter`)
+
+            env.emitState(thermostatId, "heat")
+            assertTrue(env.events<RecordedEvent.Action>().isEmpty())
+
+            env.clearEvents()
+
+            val winterTime = LocalDateTime(2025, 12, 15, 8, 0)
+            env.setClockTime(winterTime)
+            env.emitState(thermostatId, "off")
+            env.emitState(thermostatId, "heat")
+
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+            assertEquals("switch", env.events<RecordedEvent.Action>()[0].domainId)
+            assertEquals("turn_on", env.events<RecordedEvent.Action>()[0].action)
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
+        }
+    }
+
+    @Test
+    fun `time localTime accessible in trigger predicate for comparison`() = runTest {
+        val motionId = "binary_sensor.hallway_motion_2"
+        val lightId = "light.hallway_2"
+
+        val `turn on hallway light after sunset time` = Jidouka.automation(
+            id = "evening_hallway_light",
+            mode = AutomationMode.Single
+        ) {
+            triggers {
+                state(entity = entity(motionId)) {
+                    it?.state == "on" && time.localTime >= LocalTime(18, 0)
+                }
+            }
+            actions {
+                actions.call("light", "turn_on") {
+                    entity(lightId)
+                }
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            val morning = LocalDateTime(2025, 3, 8, 10, 0)
+            env.setClockTime(morning)
+            env.register(`turn on hallway light after sunset time`)
+
+            env.emitState(motionId, "on")
+            assertTrue(env.events<RecordedEvent.Action>().isEmpty())
+
+            env.clearEvents()
+
+            val evening = LocalDateTime(2025, 3, 8, 19, 0)
+            env.setClockTime(evening)
+            env.emitState(motionId, "off")
+            env.emitState(motionId, "on")
+
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+            assertEquals("light", env.events<RecordedEvent.Action>()[0].domainId)
+            assertEquals("turn_on", env.events<RecordedEvent.Action>()[0].action)
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
+        }
+    }
+
+    @Test
+    fun `time localDate accessible in trigger predicate`() = runTest {
+        val presenceId = "binary_sensor.home_presence"
+        val sceneId = "scene.holiday_mode"
+
+        val `activate holiday mode on christmas` = Jidouka.automation(
+            id = "holiday_mode",
+            mode = AutomationMode.Single
+        ) {
+            triggers {
+                state(entity = entity(presenceId)) {
+                    it?.state == "home" &&
+                            time.localDate.month == Month.DECEMBER &&
+                            time.localDate.day == 25
+                }
+            }
+            actions {
+                actions.call("scene", "turn_on") {
+                    entity(sceneId)
+                }
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            env.setClockTime(LocalDateTime(2025, 12, 26, 10, 0))
+            env.register(`activate holiday mode on christmas`)
+
+            env.emitState(presenceId, "home")
+            assertTrue(env.events<RecordedEvent.Action>().isEmpty())
+
+            env.clearEvents()
+
+            env.setClockTime(LocalDateTime(2025, 12, 25, 10, 0))
+            env.emitState(presenceId, "away")
+            env.emitState(presenceId, "home")
+
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+            assertEquals("scene", env.events<RecordedEvent.Action>()[0].domainId)
+            assertEquals("turn_on", env.events<RecordedEvent.Action>()[0].action)
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
         }
     }
 }
