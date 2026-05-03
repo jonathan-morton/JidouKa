@@ -84,22 +84,23 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
         predicate: suspend (S?) -> Boolean
     ) {
         val triggerFlow: Flow<TriggerContext.StateContext.State> = entity.changeFlow
-            .mapNotNull { transition ->
+            .map { transition ->
                 val state = entity.parseTransition(transition)
 
                 val predicateIsTrue = predicate(state)
-
-                if (predicateIsTrue) {
-                    TriggerContext.StateContext.State(transition)
-                } else {
-                    null
-                }
+                return@map Pair(predicateIsTrue, transition)
             }.let {
                 if (distinctUntilChanged) {
-                    it.distinctUntilChanged()
+                    it.distinctUntilChanged { previous: Pair<Boolean, StateTransition>, new: Pair<Boolean, StateTransition> ->
+                        previous.first == new.first
+                    }
                 } else {
                     it
                 }
+            }.filter { (predicateIsTrue, _) ->
+                predicateIsTrue
+            }.map { (_, transition) ->
+                TriggerContext.StateContext.State(transition)
             }
 
         triggers.add(triggerFlow)
@@ -242,17 +243,20 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
                     ?: return@mapNotNull null
             }.toTypedArray()
 
-            if (predicate(transitions)) {
-                TriggerContext.StateContext.States(transitions.toList())
-            } else {
-                null
-            }
+            val predicateIsTrue = predicate(transitions)
+            return@mapNotNull Pair(predicateIsTrue, transitions.toList())
         }.let {
             if (distinctUntilChanged) {
-                it.distinctUntilChanged()
+                it.distinctUntilChanged { previous, new ->
+                    previous.first == new.first
+                }
             } else {
                 it
             }
+        }.filter { (predicateIsTrue, _) ->
+            predicateIsTrue
+        }.map { (_, transitions: List<StateTransition>) ->
+            TriggerContext.StateContext.States(transitions)
         }
 
         triggers.add(triggerFlow)
@@ -270,6 +274,121 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
                 null
             }
         }
+    }
+
+    public fun <S : BaseState<S>> observe(entity: Entity<S>): Flow<S?> {
+        addEntityId(entity)
+        return entity.changeFlow.map {
+            entity.parseTransition(it)
+        }
+    }
+
+    /**
+     * Trigger from an external [Flow]
+     *
+     * This is used for flows that JidouKa does not own directly
+     *
+     * **Do not pass entity flows directly.** They will not be properly registered in JidouKa
+     * Use functions like [state],[combineState], and [observe] to ensure entities are properly subscribed
+     *
+     * @param source The external flow to trigger from
+     * @param label Optional label for identifying the flow from a [TriggerContext.Flow]
+     * @param distinctUntilChanged If true (default), only trigger when [predicate] result changes.
+     * @param data Optional lambda for modifying the value from the flow. By default, the raw emitted value is passed to the
+     * [TriggerContext.Flow.data]
+     * @param predicate Function returning true when the automation should trigger
+     */
+    public fun <T> flow(
+        source: Flow<T>,
+        label: String? = null,
+        distinctUntilChanged: Boolean = true,
+        data: ((T) -> Any?)? = null,
+        predicate: suspend (T) -> Boolean
+    ) {
+        val triggerFlow = buildFlowTrigger(
+            source = source,
+            label = label,
+            distinctUntilChanged = distinctUntilChanged,
+            data = data,
+            predicate = predicate
+        )
+
+        triggers.add(triggerFlow)
+    }
+
+    /**
+     * Trigger from an external [SharedFlow] with startup evaluation support
+     *
+     * When the automation has `runOnStartup = true`, the replay cache is evaluated at registration time. If the predicate is true,
+     * the automation triggers immediately
+     *
+     * This is used for flows that JidouKa does not own directly
+     *
+     * **Do not pass entity flows directly.** They will not be properly registered in JidouKa
+     * Use functions like [state],[combineState], and [observe] to ensure entities are properly subscribed
+     *
+     * @param source The external flow to trigger from
+     * @param label Optional label for identifying the flow from a [TriggerContext.Flow]
+     * @param distinctUntilChanged If true (default), only trigger when [predicate] result changes.
+     * @param data Optional lambda for modifying the value from the flow. By default, the raw emitted value is passed to the
+     * [TriggerContext.Flow.data]
+     * @param predicate Function returning true when the automation should trigger
+     */
+    public fun <T> sharedFlow(
+        source: SharedFlow<T>,
+        label: String? = null,
+        distinctUntilChanged: Boolean = true,
+        data: ((T) -> Any?)? = null,
+        predicate: suspend (T) -> Boolean
+    ) {
+        val triggerFlow = buildFlowTrigger(
+            source = source,
+            label = label,
+            distinctUntilChanged = distinctUntilChanged,
+            data = data,
+            predicate = predicate
+        )
+
+        triggers.add(triggerFlow)
+
+        startupEvaluators.add {
+            val current: T = source.replayCache.lastOrNull() ?: return@add null
+
+            if (predicate(current)) {
+                TriggerContext.Flow(
+                    label = label,
+                    data = data?.invoke(current) ?: current
+                )
+            } else {
+                null
+            }
+        }
+    }
+
+    private fun <T> buildFlowTrigger(
+        source: Flow<T>,
+        label: String?,
+        distinctUntilChanged: Boolean,
+        data: ((T) -> Any?)? = null,
+        predicate: suspend (T) -> Boolean
+    ): Flow<TriggerContext.Flow> {
+        return source
+            .let {
+                if (distinctUntilChanged) {
+                    it.distinctUntilChanged()
+                } else {
+                    it
+                }
+            }.mapNotNull { value ->
+                if (predicate(value)) {
+                    TriggerContext.Flow(
+                        label = label,
+                        data = data?.invoke(value) ?: value
+                    )
+                } else {
+                    null
+                }
+            }
     }
 
     internal fun addEntityIds(entities: List<Entity<*>>) {

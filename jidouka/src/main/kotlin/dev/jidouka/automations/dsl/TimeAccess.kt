@@ -18,6 +18,19 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
+ * Read-only access to the current time. Implemented by [TimeAccess] and delegated to by [TimeTriggers].
+ */
+public interface TimeReader {
+    public val now: Instant
+    public val localNow: LocalDateTime
+    public val localTime: LocalTime
+    public val localDate: LocalDate
+    public fun isBetween(start: LocalTime, end: LocalTime): Boolean
+    public fun isBetween(start: DayOfWeek, end: DayOfWeek): Boolean
+    public fun isBetween(start: Pair<Month, Int>, end: Pair<Month, Int>): Boolean
+}
+
+/**
  * Providers for access to time parameters and date information
  * @property localNow Current date and time in the configured [timeZone]
  * @property localTime Current time in the configured [timeZone]
@@ -26,19 +39,19 @@ import kotlin.time.Instant
 public class TimeAccess internal constructor(
     private val clock: Clock,
     override val timeZone: TimeZone
-) : TimeExtensionsProvider by DefaultTimeExtensionsProvider(timeZone) {
+) : TimeExtensionsProvider by DefaultTimeExtensionsProvider(timeZone), TimeReader {
     private val logger = KotlinLogging.logger {}
 
-    public val now: Instant
+    override val now: Instant
         get() = clock.now()
 
-    public val localNow: LocalDateTime
+    override val localNow: LocalDateTime
         get() = now.toLocalDateTime(timeZone)
 
-    public val localTime: LocalTime
+    override val localTime: LocalTime
         get() = localNow.time
 
-    public val localDate: LocalDate
+    override val localDate: LocalDate
         get() = localNow.date
 
     /**
@@ -50,7 +63,7 @@ public class TimeAccess internal constructor(
      * @param start The start time (inclusive)
      * @param end The end time (inclusive)
      */
-    public fun isBetween(start: LocalTime, end: LocalTime): Boolean {
+    override fun isBetween(start: LocalTime, end: LocalTime): Boolean {
         val currentTime = localTime
         return if (start.isBeforeOrEqual(end)) {
             currentTime.isBetween(start, end)
@@ -68,7 +81,7 @@ public class TimeAccess internal constructor(
      * @param start The start day (inclusive)
      * @param end The end day (inclusive)
      */
-    public fun isBetween(start: DayOfWeek, end: DayOfWeek): Boolean {
+    override fun isBetween(start: DayOfWeek, end: DayOfWeek): Boolean {
         val dayOfWeek = localNow.dayOfWeek
         return if (start.ordinal <= end.ordinal) {
             dayOfWeek in start..end
@@ -89,7 +102,7 @@ public class TimeAccess internal constructor(
      * @param start The start date as a (Month, dayOfMonth) pair (inclusive)
      * @param end The end date as a (Month, dayOfMonth) pair (inclusive)
      */
-    public fun isBetween(start: Pair<Month, Int>, end: Pair<Month, Int>): Boolean {
+    override fun isBetween(start: Pair<Month, Int>, end: Pair<Month, Int>): Boolean {
         val currentMonth = localDate.month.number
         val currentDay = localDate.day
         val startMonth = start.first.number

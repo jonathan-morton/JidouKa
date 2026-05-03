@@ -1,5 +1,7 @@
 package dev.jidouka.automations.dsl.triggers
 
+import dev.jidouka.automations.dsl.TimeAccess
+import dev.jidouka.automations.dsl.TimeReader
 import dev.jidouka.automations.dsl.builders.TriggersBuilder
 import dev.jidouka.automations.dsl.providers.DefaultTimeExtensionsProvider
 import dev.jidouka.automations.dsl.providers.TimeExtensionsProvider
@@ -31,7 +33,8 @@ public class TimeTriggers internal constructor(
     private val clockFlow: SharedFlow<Instant>,
     private val clock: Clock,
     override val timeZone: TimeZone = TimeZone.currentSystemDefault()
-) : TimeExtensionsProvider by DefaultTimeExtensionsProvider(timeZone) {
+) : TimeExtensionsProvider by DefaultTimeExtensionsProvider(timeZone),
+    TimeReader by TimeAccess(clock, timeZone) {
     /**
      * Triggers daily at a specific local time.
      *
