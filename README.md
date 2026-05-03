@@ -90,8 +90,92 @@ repositories {
 
 ```kotlin
 dependencies {
-    implementation("dev.jidouka:jidouka:0.1.0")
+    implementation("dev.jidouka:jidouka:0.2.0")
 }
+```
+
+## Deploying to a Home Server
+
+When you are ready to run your code on your server, you can use Docker to make deployment fairly easy
+
+### 1. Add a `Dockerfile` to your project
+
+Copy this into the root of your project:
+
+```dockerfile
+# Build stage
+FROM gradle:8-jdk21-alpine AS build
+WORKDIR /app
+COPY . .
+RUN ./gradlew installDist -PuseLocalJidouka=false --no-daemon && \
+    cp -r build/install/*/* /app/dist/
+
+# Runtime stage
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY --from=build /app/dist .
+VOLUME ["/app/logs"]
+CMD ["/bin/sh", "-c", "exec ./bin/$(ls ./bin | head -1)"]
+```
+
+### 2. Add a `docker-compose.yml`
+
+With `my-jidouka` as an example name for your project:
+
+```yaml
+services:
+  my-jidouka:
+    image: my-jidouka:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./logs:/app/logs
+```
+
+### 3. Create a `.env` file
+
+Create a `.env` file in your project root with your Home Assistant credentials. **Do not commit this file to git** .env
+should be added to your .gitignore
+
+```
+HA_HOST=homeassistant.local
+HA_PORT=8123
+HA_ACCESS_TOKEN=your_long_lived_access_token_here
+```
+
+### 4. Build the image for your target machine
+
+On your development machine, use `docker buildx` to cross-compile for your server's architecture.
+
+```bash
+# One-time setup
+docker buildx create --use
+
+# For ARM64 (Odroid N2, Raspberry Pi 4, etc.)
+docker buildx build --platform linux/arm64 -t my-jidouka:latest --output type=docker,dest=my-jidouka.tar .
+
+# For x86-64
+docker buildx build --platform linux/amd64 -t my-jidouka:latest --output type=docker,dest=my-jidouka.tar .
+```
+
+### 5. Transfer and start
+
+```bash
+# Copy the image, env file, and compose file to your server
+scp my-jidouka.tar .env docker-compose.yml user@your-server:~/my-jidouka/
+
+# Load the image and start
+ssh user@your-server "cd ~/my-jidouka && docker load -i my-jidouka.tar && docker compose up -d"
+```
+
+### Updating
+
+When you make changes, rebuild and redeploy:
+
+```bash
+docker buildx build --platform linux/arm64 -t my-jidouka:latest --output type=docker,dest=my-jidouka.tar .
+scp my-jidouka.tar user@your-server:~/my-jidouka/
+ssh user@your-server "cd ~/my-jidouka && docker load -i my-jidouka.tar && docker compose restart"
 ```
 
 ## Roadmap
