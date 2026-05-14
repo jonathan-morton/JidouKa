@@ -30,7 +30,7 @@ internal interface HomeAssistantWebSocket {
     suspend fun callServiceAction(
         domain: String,
         service: String,
-        target: ActionTarget,
+        target: ActionTarget?,
         serviceData: JsonObject?,
         returnResponse: Boolean
     ): Result<ActionResponse?>

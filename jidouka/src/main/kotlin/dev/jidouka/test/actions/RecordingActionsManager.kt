@@ -22,7 +22,7 @@ internal class RecordingActionsManager(
     override suspend fun callAction(
         domain: String,
         action: String,
-        target: ActionTarget,
+        target: ActionTarget?,
         data: Map<String, Any?>
     ): Result<Unit> {
         recordAction(domain, action, target, data)
@@ -32,7 +32,7 @@ internal class RecordingActionsManager(
     override suspend fun callActionWithResponse(
         domain: String,
         action: String,
-        target: ActionTarget,
+        target: ActionTarget?,
         data: Map<String, Any?>
     ): Result<ActionResponse?> {
         recordAction(domain, action, target, data)
@@ -42,7 +42,7 @@ internal class RecordingActionsManager(
     private suspend fun recordAction(
         domain: String,
         action: String,
-        target: ActionTarget,
+        target: ActionTarget?,
         data: Map<String, Any?>
     ) {
         val automationId = getAutomationId(domain, action)

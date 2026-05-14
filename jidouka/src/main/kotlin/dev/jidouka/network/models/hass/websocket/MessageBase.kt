@@ -62,7 +62,7 @@ internal sealed class HaRequest : MessageBase() {
         @SerialName("service")
         val action: String,
         @SerialName("target")
-        val target: ActionTarget,
+        val target: ActionTarget? = null,
         @SerialName("service_data")
         val actionData: JsonObject? = null,
         @SerialName("return_response")

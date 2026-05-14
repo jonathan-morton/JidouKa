@@ -57,7 +57,7 @@ class StateTriggerTests : BaseUnitTest() {
             assertEquals(1, env.events<RecordedEvent.Action>().size)
             assertEquals("light", env.events<RecordedEvent.Action>()[0].domainId)
             assertEquals("turn_on", env.events<RecordedEvent.Action>()[0].action)
-            assertTrue(env.events<RecordedEvent.Action>()[0].target.entityIds?.contains("light.hallway") == true)
+            assertTrue(env.events<RecordedEvent.Action>()[0].target?.entityIds?.contains("light.hallway") == true)
             assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
         }
     }
@@ -187,7 +187,7 @@ class StateTriggerTests : BaseUnitTest() {
             assertEquals(1, env.events<RecordedEvent.Action>().size)
             assertEquals("light", env.events<RecordedEvent.Action>()[0].domainId)
             assertEquals("turn_off", env.events<RecordedEvent.Action>()[0].action)
-            assertTrue(env.events<RecordedEvent.Action>()[0].target.entityIds?.contains(garageLightId) == true)
+            assertTrue(env.events<RecordedEvent.Action>()[0].target?.entityIds?.contains(garageLightId) == true)
             assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
         }
     }
@@ -478,7 +478,7 @@ class StateTriggerTests : BaseUnitTest() {
             env.events<RecordedEvent.Action>().forEach { action ->
                 assertEquals("light", action.domainId)
                 assertEquals("turn_on", action.action)
-                assertTrue(action.target.entityIds?.contains(lightId) == true)
+                assertTrue(action.target?.entityIds?.contains(lightId) == true)
             }
         }
     }

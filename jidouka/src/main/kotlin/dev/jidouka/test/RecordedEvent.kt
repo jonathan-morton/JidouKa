@@ -31,7 +31,7 @@ public sealed class RecordedEvent {
         val automationId: AutomationId,
         val domainId: String,
         val action: String,
-        val target: ActionTarget,
+        val target: ActionTarget? = null,
         val data: Map<String, Any?>
     ) : RecordedEvent()
 
