@@ -61,7 +61,7 @@ class TimeTests : BaseUnitTest() {
             assertEquals(1, actions.size)
             assertEquals("light", actions[0].domainId)
             assertEquals("turn_on", actions[0].action)
-            assertTrue(actions[0].target.entityIds?.contains(bedroomLightId) == true)
+            assertTrue(actions[0].target?.entityIds?.contains(bedroomLightId) == true)
             assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
         }
     }
@@ -256,7 +256,7 @@ class TimeTests : BaseUnitTest() {
             assertEquals(1, actions.size)
             assertEquals("light", actions[0].domainId)
             assertEquals("turn_on", actions[0].action)
-            assertTrue(actions[0].target.entityIds?.contains(porchLightId) == true)
+            assertTrue(actions[0].target?.entityIds?.contains(porchLightId) == true)
             assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
         }
     }

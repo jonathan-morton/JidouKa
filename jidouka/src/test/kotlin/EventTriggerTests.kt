@@ -66,7 +66,7 @@ class EventTriggerTests : BaseUnitTest() {
             assertEquals(1, actions.size)
             assertEquals("light", actions[0].domainId)
             assertEquals("toggle", actions[0].action)
-            assertTrue(actions[0].target.entityIds?.contains(lightId) == true)
+            assertTrue(actions[0].target?.entityIds?.contains(lightId) == true)
             assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
         }
     }

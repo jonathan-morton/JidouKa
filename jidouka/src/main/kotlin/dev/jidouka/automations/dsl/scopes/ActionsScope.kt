@@ -19,11 +19,13 @@ public class ActionsScope internal constructor(
         domain: String,
         action: String,
         data: Map<String, Any?> = emptyMap(),
-        target: ActionTargetBuilder.() -> Unit
+        target: (ActionTargetBuilder.() -> Unit)? = null
     ): Result<Unit> {
-        val actionTarget = ActionTargetBuilder()
-            .apply(target)
-            .build()
+        val actionTarget = target?.let {
+            ActionTargetBuilder()
+                .apply(target)
+                .build()
+        }
 
         return actionsManager.callAction(
             domain = domain,
@@ -41,11 +43,13 @@ public class ActionsScope internal constructor(
         domain: String,
         action: String,
         data: Map<String, Any?> = emptyMap(),
-        target: ActionTargetBuilder.() -> Unit
+        target: (ActionTargetBuilder.() -> Unit)? = null
     ): Result<ActionResponse?> {
-        val actionTarget = ActionTargetBuilder()
-            .apply(target)
-            .build()
+        val actionTarget = target?.let {
+            ActionTargetBuilder()
+                .apply(target)
+                .build()
+        }
 
         return actionsManager.callActionWithResponse(
             domain = domain,

@@ -14,14 +14,14 @@ internal interface ActionsManager {
     suspend fun callAction(
         domain: String,
         action: String,
-        target: ActionTarget,
+        target: ActionTarget?,
         data: Map<String, Any?>
     ): Result<Unit>
 
     suspend fun callActionWithResponse(
         domain: String,
         action: String,
-        target: ActionTarget,
+        target: ActionTarget?,
         data: Map<String, Any?>
     ): Result<ActionResponse?>
 }
@@ -39,14 +39,16 @@ internal class HomeAssistantActionsManager(
     override suspend fun callAction(
         domain: String,
         action: String,
-        target: ActionTarget,
+        target: ActionTarget?,
         data: Map<String, Any?>
     ): Result<Unit> {
         logger.info { "Calling action '$domain.$action'" }
-        val targetCount = (target.entityIds?.size ?: 0) + (target.areaIds?.size ?: 0) +
-                (target.deviceIds?.size ?: 0) + (target.floorIds?.size ?: 0) +
-                (target.labelIds?.size ?: 0)
-        logger.debug { "Calling action '$domain.$action' on $targetCount target(s)${if (data.isNotEmpty()) " with $data" else ""}" }
+        target?.let {
+            val targetCount = (target.entityIds?.size ?: 0) + (target.areaIds?.size ?: 0) +
+                    (target.deviceIds?.size ?: 0) + (target.floorIds?.size ?: 0) +
+                    (target.labelIds?.size ?: 0)
+            logger.debug { "Calling action '$domain.$action' on $targetCount target(s)${if (data.isNotEmpty()) " with $data" else ""}" }
+        }
 
         val serviceData = if (data.isEmpty()) null else {
             JsonObjectBuilder.buildJsonObject(data)
@@ -72,14 +74,16 @@ internal class HomeAssistantActionsManager(
     override suspend fun callActionWithResponse(
         domain: String,
         action: String,
-        target: ActionTarget,
+        target: ActionTarget?,
         data: Map<String, Any?>
     ): Result<ActionResponse?> {
         logger.info { "Calling action '$domain.$action' with response" }
-        val targetCount = (target.entityIds?.size ?: 0) + (target.areaIds?.size ?: 0) +
-                (target.deviceIds?.size ?: 0) + (target.floorIds?.size ?: 0) +
-                (target.labelIds?.size ?: 0)
-        logger.debug { "Calling action '$domain.$action' on $targetCount target(s) with response${if (data.isNotEmpty()) " and $data" else ""}" }
+        target?.let {
+            val targetCount = (target.entityIds?.size ?: 0) + (target.areaIds?.size ?: 0) +
+                    (target.deviceIds?.size ?: 0) + (target.floorIds?.size ?: 0) +
+                    (target.labelIds?.size ?: 0)
+            logger.debug { "Calling action '$domain.$action' on $targetCount target(s) with response${if (data.isNotEmpty()) " and $data" else ""}" }
+        }
 
         val serviceData = if (data.isEmpty()) null else {
             JsonObjectBuilder.buildJsonObject(data)
