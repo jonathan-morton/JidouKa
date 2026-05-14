@@ -2,8 +2,10 @@ package dev.jidouka.client
 
 import dev.jidouka.actions.ActionResponse
 import dev.jidouka.aliases.SubscriptionId
+import dev.jidouka.aliases.WebhookId
 import dev.jidouka.components.StateObject
 import dev.jidouka.components.event.EventObject
+import dev.jidouka.components.webhook.WebhookObject
 import dev.jidouka.configuration.HomeAssistantConfiguration
 import dev.jidouka.network.JsonManager
 import dev.jidouka.network.models.hass.websocket.ActionTarget
@@ -15,9 +17,11 @@ import dev.jidouka.network.models.hass.websocket.MessageBase
 import dev.jidouka.network.models.hass.websocket.ResultResponse
 import dev.jidouka.network.models.hass.websocket.StateData
 import dev.jidouka.network.models.hass.websocket.TriggerConfiguration
+import dev.jidouka.network.models.hass.websocket.trigger.WebhookHttpMethod
 import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.registry.EventRegistry
 import dev.jidouka.registry.StateRegistry
+import dev.jidouka.registry.WebhookRegistry
 import dev.jidouka.usecases.AuthenticationUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.*
@@ -57,7 +61,8 @@ internal class HomeAssistantWebSocketClient(
     private val authenticationUseCase: AuthenticationUseCase,
     private val stateRegistry: StateRegistry,
     private val jsonManager: JsonManager,
-    private val eventRegistry: EventRegistry
+    private val eventRegistry: EventRegistry,
+    private val webhookRegistry: WebhookRegistry,
 ) : HomeAssistantWebSocket {
     private var session: WebSocketSession? = null
 
@@ -260,6 +265,31 @@ internal class HomeAssistantWebSocketClient(
         return subscriptionIdDeferred.await()
     }
 
+    override suspend fun subscribeToWebhook(
+        id: WebhookId,
+        allowedMethods: Set<WebhookHttpMethod>,
+        isLocalOnly: Boolean
+    ): SubscriptionId {
+        val subscriptionIdDeferred = CompletableDeferred<SubscriptionId>()
+
+        sendRequest(
+            createOperation = { PendingOperation.Subscription(subscriptionIdDeferred) },
+            createRequest = { messageId ->
+                HaRequest.SubscribeTriggerRequest(
+                    id = messageId,
+                    trigger = TriggerConfiguration(
+                        platform = TriggerConfiguration.Platform.Webhook,
+                        webhookId = id,
+                        allowedMethods = allowedMethods.toList(),
+                        isLocalOnly = isLocalOnly
+                    )
+                )
+            }
+        )
+
+        return subscriptionIdDeferred.await()
+    }
+
     override suspend fun callServiceAction(
         domain: String,
         service: String,
@@ -388,6 +418,24 @@ internal class HomeAssistantWebSocketClient(
                         eventRegistry.emitEvent(trigger.event.toEventObject())
                     } else {
                         logger.warn { "Event trigger missing event data" }
+                    }
+                }
+
+                TriggerConfiguration.Platform.Webhook -> {
+                    val webhookId = trigger.webhookId
+                    if (webhookId != null) {
+                        logger.debug { "Webhook trigger received: $webhookId" }
+
+                        webhookRegistry.emitWebhook(
+                            WebhookObject(
+                                webhookId = webhookId,
+                                jsonData = trigger.json,
+                                formDataRepresentation = trigger.data?.representation,
+                                queryRepresentation = trigger.query?.representation
+                            )
+                        )
+                    } else {
+                        logger.warn { "Webhook trigger missing webhook ID" }
                     }
                 }
 

@@ -1,5 +1,6 @@
 package dev.jidouka.automations.dsl.triggers
 
+import dev.jidouka.aliases.WebhookId
 import dev.jidouka.components.StateTransition
 import dev.jidouka.components.event.BaseEvent
 import kotlin.time.Instant
@@ -53,5 +54,12 @@ public sealed class TriggerContext {
     public data class Flow(
         val label: String? = null,
         val data: Any? = null
+    ) : TriggerContext()
+
+    public data class Webhook(
+        val webhookId: WebhookId,
+        val jsonData: Map<String, Any?>?,
+        val formDataRepresentation: String?,
+        val queryRepresentation: String?
     ) : TriggerContext()
 }

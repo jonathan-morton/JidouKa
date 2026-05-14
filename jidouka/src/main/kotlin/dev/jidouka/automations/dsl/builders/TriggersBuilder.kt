@@ -2,6 +2,7 @@ package dev.jidouka.automations.dsl.builders
 
 import dev.jidouka.aliases.EntityId
 import dev.jidouka.aliases.EventTypeId
+import dev.jidouka.aliases.WebhookId
 import dev.jidouka.automations.dsl.AutomationDsl
 import dev.jidouka.automations.dsl.providers.DefaultTimeExtensionsProvider
 import dev.jidouka.automations.dsl.providers.EntityProvider
@@ -17,6 +18,7 @@ import dev.jidouka.components.Entity
 import dev.jidouka.components.StateTransition
 import dev.jidouka.registry.EntityRegistry
 import dev.jidouka.registry.EventRegistry
+import dev.jidouka.registry.WebhookRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
@@ -43,6 +45,7 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
     private val clock: Clock,
     private val entityRegistry: EntityRegistry,
     eventRegistry: EventRegistry,
+    private val webhookRegistry: WebhookRegistry,
     automationId: String,
     override val timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) : EntityProvider by RegistryEntityProvider(entityRegistry),
@@ -54,6 +57,7 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
 
     private val entityIdsSet = mutableSetOf<EntityId>()
     private val eventTypesSet = mutableSetOf<EventTypeId>()
+    private val webhookIdsSet = mutableSetOf<WebhookId>()
 
     public val time: TimeTriggers = TimeTriggers(
         triggersBuilder = this,
@@ -365,6 +369,31 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
         }
     }
 
+    public fun webhook(
+        id: WebhookId,
+        predicate: suspend (TriggerContext.Webhook) -> Boolean = { true }
+    ) {
+        val rawFlow = webhookRegistry.getOrCreateFlow(id)
+
+        val triggerFlow = rawFlow.mapNotNull { webhook ->
+            val context = TriggerContext.Webhook(
+                webhookId = webhook.webhookId,
+                jsonData = webhook.jsonData,
+                formDataRepresentation = webhook.formDataRepresentation,
+                queryRepresentation = webhook.queryRepresentation
+            )
+
+            if (predicate(context)) {
+                context
+            } else {
+                null
+            }
+        }
+
+        triggers.add(triggerFlow)
+        webhookIdsSet.add(id)
+    }
+
     private fun <T> buildFlowTrigger(
         source: Flow<T>,
         label: String?,
@@ -439,6 +468,19 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
 
         if (eventTypesSet.isNotEmpty()) {
             metadata.add(TriggerMetadata.EventTrigger(eventTypesSet))
+        }
+
+        if (webhookIdsSet.isNotEmpty()) {
+            metadata.add(TriggerMetadata.WebhookTrigger(webhookIdsSet))
+        }
+
+        logger.debug {
+            """
+                Built trigger metadata 
+                ${entityIdsSet.size} entity ID(s)
+                ${eventTypesSet.size} event type(s)
+                ${webhookIdsSet.size} webhook ID(s)
+            """.trimIndent()
         }
 
         logger.debug { "Built trigger metadata: ${entityIdsSet.size} entity ID(s), ${eventTypesSet.size} event type(s)" }

@@ -3,10 +3,12 @@ package dev.jidouka.client
 import dev.jidouka.aliases.EntityId
 import dev.jidouka.aliases.EventTypeId
 import dev.jidouka.aliases.SubscriptionId
+import dev.jidouka.aliases.WebhookId
 import dev.jidouka.components.StateObject
 import dev.jidouka.configuration.HomeAssistantConfiguration
 import dev.jidouka.network.NetworkResponse
 import dev.jidouka.network.models.hass.websocket.StateData
+import dev.jidouka.network.models.hass.websocket.trigger.WebhookHttpMethod
 import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.registry.StateRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -54,6 +56,12 @@ internal interface ConnectionManager {
      * Subscribe to events of a specific type
      */
     suspend fun subscribeToEvent(eventTypeId: EventTypeId): SubscriptionId
+
+    suspend fun subscribeToWebhook(
+        webhookId: WebhookId,
+        allowedMethods: Set<WebhookHttpMethod> = setOf(WebhookHttpMethod.PUT),
+        isLocalOnly: Boolean = true
+    ): SubscriptionId
 
     /**
      * Unsubscribe from updates
@@ -206,6 +214,18 @@ internal class HomeAssistantConnectionManager(
 
     override suspend fun subscribeToEvent(eventTypeId: EventTypeId): SubscriptionId {
         return webSocketClient.subscribeToEvent(eventTypeId)
+    }
+
+    override suspend fun subscribeToWebhook(
+        webhookId: WebhookId,
+        allowedMethods: Set<WebhookHttpMethod>,
+        isLocalOnly: Boolean
+    ): SubscriptionId {
+        return webSocketClient.subscribeToWebhook(
+            id = webhookId,
+            allowedMethods = allowedMethods,
+            isLocalOnly = isLocalOnly
+        )
     }
 
     override suspend fun unsubscribe(subscriptionId: SubscriptionId) {

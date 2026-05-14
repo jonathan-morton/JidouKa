@@ -1,6 +1,7 @@
 package dev.jidouka.automations.dsl.scopes
 
 import dev.jidouka.aliases.EntityId
+import dev.jidouka.aliases.WebhookId
 import dev.jidouka.automations.dsl.triggers.TriggerContext
 import dev.jidouka.components.BaseState
 import dev.jidouka.components.Domain
@@ -71,6 +72,17 @@ public class TriggeredScope internal constructor(
     public fun byFlow(label: String): Boolean {
         val flowContext = context as? TriggerContext.Flow ?: return false
         return flowContext.label == label
+    }
+    //endregion
+
+    //region Webhook
+    public fun byWebhook(): Boolean {
+        return context is TriggerContext.Webhook
+    }
+
+    public fun byWebhook(id: WebhookId): Boolean {
+        val webhookContext = context as? TriggerContext.Webhook ?: return false
+        return webhookContext.webhookId == id
     }
     //endregion
     //endregion
@@ -194,6 +206,24 @@ public class TriggeredScope internal constructor(
         }
     }
     //endregion
+
+    //region Webhook
+    /**
+     * Returns the webhook context if the automation was triggered by a webhook
+     */
+    public fun webhook(): TriggerContext.Webhook? {
+        return context as? TriggerContext.Webhook
+    }
+
+    public fun webhook(id: WebhookId): TriggerContext.Webhook? {
+        val webhookContext = webhook() ?: return null
+        return if (webhookContext.webhookId == id) {
+            webhookContext
+        } else {
+            null
+        }
+    }
+    //endregion
     //endregion
 
     private fun resolveStateTransition(entity: Entity<*>): StateTransition? = when (context) {
@@ -213,7 +243,8 @@ public class TriggeredScope internal constructor(
 
         is TriggerContext.Event,
         is TriggerContext.Time,
-        is TriggerContext.Flow -> null
+        is TriggerContext.Flow,
+        is TriggerContext.Webhook -> null
     }
 
     private fun resolveSingleStateTransition(triggerContext: TriggerContext): StateTransition? {

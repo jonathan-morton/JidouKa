@@ -7,5 +7,6 @@ package dev.jidouka.automations.registry.subscription
  */
 internal data class SubscriptionStatistics(
     val entities: Map<String, Int>,
-    val events: Map<String, Int>
+    val events: Map<String, Int>,
+    val webhooks: Map<String, Int> = emptyMap()
 )

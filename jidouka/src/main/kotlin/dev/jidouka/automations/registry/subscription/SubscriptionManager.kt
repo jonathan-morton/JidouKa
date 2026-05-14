@@ -66,6 +66,7 @@ internal class WebSocketSubscriptionManager(
                     val keyDescription = when (key) {
                         is TriggerKey.Entity -> "entity '${key.entityId}'"
                         is TriggerKey.Event -> "event type '${key.eventType}'"
+                        is TriggerKey.Webhook -> "webhook '${key.webhookId}'"
                     }
                     logger.info { "Creating new subscription to $keyDescription for automation '$automationId'" }
                     val subscriptionId = subscribeToClient(key)
@@ -98,6 +99,7 @@ internal class WebSocketSubscriptionManager(
                 val keyDescription = when (key) {
                     is TriggerKey.Entity -> "entity '${key.entityId}'"
                     is TriggerKey.Event -> "event type '${key.eventType}'"
+                    is TriggerKey.Webhook -> "webhook '${key.webhookId}'"
                 }
                 logger.info { "Removing subscription to $keyDescription (no automations remaining)" }
                 unsubscribeFromClient(subscriptionId)
@@ -130,6 +132,7 @@ internal class WebSocketSubscriptionManager(
                         val keyDescription = when (key) {
                             is TriggerKey.Entity -> "entity ${key.entityId}"
                             is TriggerKey.Event -> "event ${key.eventType}"
+                            is TriggerKey.Webhook -> "webhook '${key.webhookId}'"
                         }
                         """
                         Resubscribed to $keyDescription for ${automationIds.size} automations
@@ -165,6 +168,10 @@ internal class WebSocketSubscriptionManager(
 
             is TriggerKey.Event -> {
                 connectionManager.subscribeToEvent(key.eventType)
+            }
+
+            is TriggerKey.Webhook -> {
+                connectionManager.subscribeToWebhook(key.webhookId)
             }
         }
 
@@ -204,17 +211,20 @@ internal class WebSocketSubscriptionManager(
     override fun getStatistics(): SubscriptionStatistics {
         val entityStats = mutableMapOf<String, Int>()
         val eventStats = mutableMapOf<String, Int>()
+        val webhookStats = mutableMapOf<String, Int>()
 
         automationIdsByTriggerKey.forEach { (key, automations) ->
             when (key) {
                 is TriggerKey.Entity -> entityStats[key.entityId] = automations.size
                 is TriggerKey.Event -> eventStats[key.eventType] = automations.size
+                is TriggerKey.Webhook -> webhookStats[key.webhookId] = automations.size
             }
         }
 
         return SubscriptionStatistics(
             entities = entityStats,
-            events = eventStats
+            events = eventStats,
+            webhooks = webhookStats
         )
     }
 }

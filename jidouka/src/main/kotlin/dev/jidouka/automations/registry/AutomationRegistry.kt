@@ -13,6 +13,7 @@ import dev.jidouka.automations.registry.subscription.SubscriptionManager
 import dev.jidouka.monitors.TimeMonitor
 import dev.jidouka.registry.EntityRegistry
 import dev.jidouka.registry.EventRegistry
+import dev.jidouka.registry.WebhookRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -32,6 +33,7 @@ internal class AutomationRegistry(
     private val executor: AutomationExecutor,
     private val entityRegistry: EntityRegistry,
     private val eventRegistry: EventRegistry,
+    private val webhookRegistry: WebhookRegistry,
     private val actionsManager: ActionsManager,
     private val clock: Clock,
     private val timeZone: TimeZone
@@ -133,7 +135,8 @@ internal class AutomationRegistry(
             entityRegistry = entityRegistry,
             eventRegistry = eventRegistry,
             automationId = this.id,
-            timeZone = timeZone
+            timeZone = timeZone,
+            webhookRegistry = webhookRegistry
         )
         triggersBuilder.triggers()
 
