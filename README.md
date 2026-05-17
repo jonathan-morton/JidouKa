@@ -89,6 +89,11 @@ repositories {
 ```
 
 ```kotlin
+plugins {
+    // ...
+    kotlin("plugin.serialization") version "2.3.21"
+}
+
 dependencies {
     implementation("dev.jidouka:jidouka:0.2.0")
 }
