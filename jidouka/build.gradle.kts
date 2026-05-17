@@ -24,6 +24,7 @@ dependencies {
     // Ktor client modules
     implementation(libs.bundles.ktor.client)
     implementation(libs.ktor.serialization.kotlinx.json)
+    api(libs.kotlinx.serialization.json)
 
     // Other libraries
     api(libs.kotlinx.datetime)
