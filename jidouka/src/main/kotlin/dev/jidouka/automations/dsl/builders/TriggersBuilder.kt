@@ -373,6 +373,18 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
         }
     }
 
+    /**
+     * Trigger from a webhook call
+     *
+     * Multiple automations and triggers with an automation can use the same webhook ID. However, [allowedMethods] and
+     * [isLocalOnly] must match. If they do not match, [IllegalStateException] is thrown
+     *
+     * @param id The webhook ID `http://your-home-assistant:8123/api/webhook/some_hook_id`
+     * @param allowedMethods The Http methods allowed when making the webhook request
+     * @param isLocalOnly When `true` webhook calls can only be made from the same network as Home Assistant. To allow calls from the internet, set to `false`
+     * @param predicate Function returning true when the automation should trigger
+     */
+    @Throws(IllegalStateException::class)
     public fun webhook(
         id: WebhookId,
         allowedMethods: Set<WebhookHttpMethod> = setOf(WebhookHttpMethod.PUT),
@@ -418,6 +430,16 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
         }
     }
 
+    /**
+     * Trigger from a webhook call
+     *
+     * Multiple automations and triggers with an automation can use the same webhook ID. However, [configuration] must match.
+     * If they do not match, [IllegalStateException] is thrown
+     *
+     * @param configuration Configuration for setting up the webhook
+     * @param predicate Function returning true when the automation should trigger
+     */
+    @Throws(IllegalStateException::class)
     public fun webhook(
         configuration: WebhookTriggerConfiguration,
         predicate: suspend (TriggerContext.Webhook) -> Boolean = { true }
