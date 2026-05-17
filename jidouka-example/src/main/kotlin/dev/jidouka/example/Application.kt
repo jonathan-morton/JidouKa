@@ -72,6 +72,9 @@ fun main() = runBlocking {
             register(
                 ExampleAutomations.automations
             )
+            register(
+                WebhookExamples.automations
+            )
         }
     }
 

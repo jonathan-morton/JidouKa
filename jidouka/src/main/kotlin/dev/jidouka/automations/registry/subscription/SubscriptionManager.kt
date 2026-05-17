@@ -2,7 +2,9 @@ package dev.jidouka.automations.registry.subscription
 
 import dev.jidouka.aliases.EntityId
 import dev.jidouka.aliases.SubscriptionId
+import dev.jidouka.aliases.WebhookId
 import dev.jidouka.automations.dsl.triggers.TriggerMetadata
+import dev.jidouka.automations.dsl.triggers.WebhookTriggerConfiguration
 import dev.jidouka.automations.registry.TriggerKey
 import dev.jidouka.client.ConnectionManager
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -42,6 +44,7 @@ internal class WebSocketSubscriptionManager(
 ) : SubscriptionManager {
     private val automationIdsByTriggerKey = ConcurrentHashMap<TriggerKey, MutableSet<AutomationId>>()
     private val subscriptionIds = ConcurrentHashMap<TriggerKey, SubscriptionId>()
+    private val webhookConfigurations = ConcurrentHashMap<WebhookId, WebhookSubscriptionConfiguration>()
 
     private val mutex = Mutex()
     private val logger = KotlinLogging.logger {}
@@ -50,6 +53,8 @@ internal class WebSocketSubscriptionManager(
         metadata: TriggerMetadata,
         automationId: String
     ) = mutex.withLock {
+        validateWebhookConfigurations(metadata)
+
         val keys: List<TriggerKey> = TriggerKey.getKeys(metadata)
         logger.debug { "Subscribing automation '$automationId' to ${keys.size} trigger key(s)" }
 
@@ -81,6 +86,31 @@ internal class WebSocketSubscriptionManager(
         }
     }
 
+    @Throws(IllegalStateException::class)
+    private fun validateWebhookConfigurations(metadata: TriggerMetadata) {
+        if (metadata !is TriggerMetadata.WebhookTrigger) return
+
+        metadata.webhookConfigurations.forEach { (webhookId, configuration) ->
+            val existingConfiguration = webhookConfigurations[webhookId]
+
+            existingConfiguration?.let {
+                WebhookTriggerConfiguration.requireWebhookConfigurationMatches(
+                    webhookId = webhookId,
+                    existingAllowedMethods = existingConfiguration.allowedMethods,
+                    incomingAllowedMethods = configuration.allowedMethods,
+                    existingIsLocalOnly = existingConfiguration.isLocalOnly,
+                    incomingIsLocalOnly = configuration.isLocalOnly
+
+                )
+            } ?: run {
+                webhookConfigurations[webhookId] = WebhookSubscriptionConfiguration(
+                    configuration.allowedMethods,
+                    configuration.isLocalOnly
+                )
+            }
+        }
+    }
+
     override suspend fun unsubscribe(
         metadata: TriggerMetadata,
         automationId: AutomationId,
@@ -95,6 +125,11 @@ internal class WebSocketSubscriptionManager(
 
             if (automationIds.isEmpty()) {
                 automationIdsByTriggerKey.remove(key)
+
+                if (key is TriggerKey.Webhook) {
+                    webhookConfigurations.remove(key.webhookId)
+                }
+
                 val subscriptionId = subscriptionIds.remove(key) ?: return@forEach
                 val keyDescription = when (key) {
                     is TriggerKey.Entity -> "entity '${key.entityId}'"
@@ -171,7 +206,14 @@ internal class WebSocketSubscriptionManager(
             }
 
             is TriggerKey.Webhook -> {
-                connectionManager.subscribeToWebhook(key.webhookId)
+                val configuration = webhookConfigurations[key.webhookId]
+                    ?: error("No webhook configuration found: ${key.webhookId}")
+
+                connectionManager.subscribeToWebhook(
+                    webhookId = key.webhookId,
+                    allowedMethods = configuration.allowedMethods,
+                    isLocalOnly = configuration.isLocalOnly
+                )
             }
         }
 

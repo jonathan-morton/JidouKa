@@ -6,12 +6,14 @@ import dev.jidouka.automations.registry.subscription.SubscriptionManager
 import dev.jidouka.monitors.TimeMonitor
 import dev.jidouka.registry.EventRegistry
 import dev.jidouka.registry.StateRegistry
+import dev.jidouka.registry.WebhookRegistry
 import dev.jidouka.test.RecordedEvent
 import dev.jidouka.test.actions.RecordingActionsManager
 import dev.jidouka.test.automations.registry.subscription.TestSubscriptionManager
 import dev.jidouka.test.monitors.TestTimeMonitor
 import dev.jidouka.test.registry.InMemoryEventRegistry
 import dev.jidouka.test.registry.InMemoryStateRegistry
+import dev.jidouka.test.registry.InMemoryWebhookRegistry
 import dev.jidouka.test.usecases.TestEnsureEntitySubscribedAndCurrentUseCase
 import dev.jidouka.usecases.EnsureEntitySubscribedAndCurrentUseCase
 import kotlinx.coroutines.CoroutineScope
@@ -46,6 +48,7 @@ internal fun testModule(
 
     single<InMemoryEventRegistry>() bind EventRegistry::class
     single<InMemoryStateRegistry>() bind StateRegistry::class
+    single<InMemoryWebhookRegistry>() bind WebhookRegistry::class
 
     single<TestSubscriptionManager>() bind SubscriptionManager::class
     single {

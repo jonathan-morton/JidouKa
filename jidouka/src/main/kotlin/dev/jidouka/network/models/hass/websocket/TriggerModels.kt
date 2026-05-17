@@ -71,7 +71,7 @@ internal data class TriggerEvent(
     @SerialName("variables")
     val variables: TriggerVariables,
     @SerialName("context")
-    val context: Context
+    val context: Context? = null
 )
 
 @Serializable

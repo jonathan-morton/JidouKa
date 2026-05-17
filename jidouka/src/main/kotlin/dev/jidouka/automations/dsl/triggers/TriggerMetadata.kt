@@ -14,6 +14,6 @@ internal sealed class TriggerMetadata {
     ) : TriggerMetadata()
 
     internal data class WebhookTrigger(
-        val webhookIds: Set<WebhookId>
+        val webhookConfigurations: Map<WebhookId, WebhookTriggerConfiguration>
     ) : TriggerMetadata()
 }

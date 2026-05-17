@@ -13,9 +13,12 @@ import dev.jidouka.automations.dsl.scopes.LoggingScope
 import dev.jidouka.automations.dsl.triggers.TimeTriggers
 import dev.jidouka.automations.dsl.triggers.TriggerContext
 import dev.jidouka.automations.dsl.triggers.TriggerMetadata
+import dev.jidouka.automations.dsl.triggers.WebhookTriggerConfiguration
 import dev.jidouka.components.BaseState
 import dev.jidouka.components.Entity
 import dev.jidouka.components.StateTransition
+import dev.jidouka.network.models.hass.websocket.trigger.WebhookHttpMethod
+import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.registry.EntityRegistry
 import dev.jidouka.registry.EventRegistry
 import dev.jidouka.registry.WebhookRegistry
@@ -57,7 +60,8 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
 
     private val entityIdsSet = mutableSetOf<EntityId>()
     private val eventTypesSet = mutableSetOf<EventTypeId>()
-    private val webhookIdsSet = mutableSetOf<WebhookId>()
+    private val webhookConfigurations = mutableMapOf<WebhookId, WebhookTriggerConfiguration>()
+
 
     public val time: TimeTriggers = TimeTriggers(
         triggersBuilder = this,
@@ -371,14 +375,28 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
 
     public fun webhook(
         id: WebhookId,
+        allowedMethods: Set<WebhookHttpMethod> = setOf(WebhookHttpMethod.PUT),
+        isLocalOnly: Boolean = true,
         predicate: suspend (TriggerContext.Webhook) -> Boolean = { true }
     ) {
+        val existingConfiguration = webhookConfigurations[id]
+        existingConfiguration?.let {
+            WebhookTriggerConfiguration.requireWebhookConfigurationMatches(
+                webhookId = id,
+                existingAllowedMethods = existingConfiguration.allowedMethods,
+                incomingAllowedMethods = allowedMethods,
+                existingIsLocalOnly = existingConfiguration.isLocalOnly,
+                incomingIsLocalOnly = isLocalOnly
+
+            )
+        }
+
         val rawFlow = webhookRegistry.getOrCreateFlow(id)
 
         val triggerFlow = rawFlow.mapNotNull { webhook ->
             val context = TriggerContext.Webhook(
                 webhookId = webhook.webhookId,
-                jsonData = webhook.jsonData,
+                jsonData = webhook.jsonData?.toNativeMap(),
                 formDataRepresentation = webhook.formDataRepresentation,
                 queryRepresentation = webhook.queryRepresentation
             )
@@ -391,7 +409,25 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
         }
 
         triggers.add(triggerFlow)
-        webhookIdsSet.add(id)
+        if (existingConfiguration == null) {
+            webhookConfigurations[id] = WebhookTriggerConfiguration(
+                id = id,
+                allowedMethods = allowedMethods,
+                isLocalOnly = isLocalOnly
+            )
+        }
+    }
+
+    public fun webhook(
+        configuration: WebhookTriggerConfiguration,
+        predicate: suspend (TriggerContext.Webhook) -> Boolean = { true }
+    ) {
+        webhook(
+            id = configuration.id,
+            allowedMethods = configuration.allowedMethods,
+            isLocalOnly = configuration.isLocalOnly,
+            predicate = predicate
+        )
     }
 
     private fun <T> buildFlowTrigger(
@@ -470,8 +506,8 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
             metadata.add(TriggerMetadata.EventTrigger(eventTypesSet))
         }
 
-        if (webhookIdsSet.isNotEmpty()) {
-            metadata.add(TriggerMetadata.WebhookTrigger(webhookIdsSet))
+        if (webhookConfigurations.isNotEmpty()) {
+            metadata.add(TriggerMetadata.WebhookTrigger(webhookConfigurations.toMap()))
         }
 
         logger.debug {
@@ -479,7 +515,7 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
                 Built trigger metadata 
                 ${entityIdsSet.size} entity ID(s)
                 ${eventTypesSet.size} event type(s)
-                ${webhookIdsSet.size} webhook ID(s)
+                ${webhookConfigurations.size} webhook ID(s)
             """.trimIndent()
         }
 

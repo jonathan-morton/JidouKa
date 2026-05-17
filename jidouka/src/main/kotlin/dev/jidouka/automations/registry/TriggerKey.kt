@@ -23,7 +23,7 @@ internal sealed class TriggerKey {
                 }
 
                 is TriggerMetadata.WebhookTrigger -> {
-                    metadata.webhookIds.map { id ->
+                    metadata.webhookConfigurations.keys.map { id ->
                         Webhook(id)
                     }
                 }
