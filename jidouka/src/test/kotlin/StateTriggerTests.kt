@@ -15,6 +15,8 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -58,6 +60,55 @@ class StateTriggerTests : BaseUnitTest() {
             assertEquals("light", env.events<RecordedEvent.Action>()[0].domainId)
             assertEquals("turn_on", env.events<RecordedEvent.Action>()[0].action)
             assertTrue(env.events<RecordedEvent.Action>()[0].target?.entityIds?.contains("light.hallway") == true)
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
+        }
+    }
+
+    @Test
+    fun `state trigger fires action when predicate matches with serializable data`() = runTest {
+        val id = "test_with_medicine_box"
+        val medicineContactId = "binary_sensor.medicine_container_contact"
+        val message = "test"
+
+        @Serializable
+        @SerialName("data")
+        data class NotificationData(
+            @SerialName("message")
+            val message: String,
+            @SerialName("title")
+            val title: String? = null,
+        )
+
+        val `send notification medicine has been taken` = Jidouka.automation(id) {
+            triggers {
+                val medicineContactSensor = entity(medicineContactId)
+                state(medicineContactSensor) { contact ->
+                    contact ?: return@state false
+                    contact.state == "off"
+                }
+            }
+
+            actions {
+                actions.call(
+                    domain = "notify",
+                    action = "mobile_app_mac_studio",
+                    data = NotificationData(message = message),
+                )
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            env.register(`send notification medicine has been taken`)
+
+            env.emitState(medicineContactId, "off")
+
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+            assertEquals("notify", env.events<RecordedEvent.Action>()[0].domainId)
+            assertEquals("mobile_app_mac_studio", env.events<RecordedEvent.Action>()[0].action)
+
+            val notificationData = env.events<RecordedEvent.Action>()[0].data
+            assertEquals(message, notificationData["message"])
+
             assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
         }
     }

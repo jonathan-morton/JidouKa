@@ -5,10 +5,12 @@ import dev.jidouka.actions.ActionsManager
 import dev.jidouka.automations.AutomationContext
 import dev.jidouka.network.JsonManager
 import dev.jidouka.network.models.hass.websocket.ActionTarget
+import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.test.RecordedEvent
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 
 internal class RecordingActionsManager(
     private val jsonManager: JsonManager,
@@ -26,6 +28,16 @@ internal class RecordingActionsManager(
         data: Map<String, Any?>
     ): Result<Unit> {
         recordAction(domain, action, target, data)
+        return Result.success(Unit)
+    }
+
+    override suspend fun callAction(
+        domain: String,
+        action: String,
+        target: ActionTarget?,
+        data: JsonObject?
+    ): Result<Unit> {
+        recordAction(domain, action, target, data?.toNativeMap() ?: emptyMap())
         return Result.success(Unit)
     }
 
@@ -57,6 +69,16 @@ internal class RecordingActionsManager(
         )
 
         onActionCalled(recordedAction)
+    }
+
+    override suspend fun callActionWithResponse(
+        domain: String,
+        action: String,
+        target: ActionTarget?,
+        data: JsonObject?
+    ): Result<ActionResponse?> {
+        recordAction(domain, action, target, data?.toNativeMap() ?: emptyMap())
+        return Result.success(null)
     }
 
     private suspend fun getAutomationId(domain: String, action: String): String {
