@@ -6,7 +6,6 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.koin.compiler)
     alias(libs.plugins.dokka)
-    alias(libs.plugins.dokka.javadoc)
     `maven-publish`
 }
 
@@ -49,9 +48,11 @@ tasks.test {
     exclude("**/BaseUnitTest.class")
 }
 
-val dokkaJavadocJar by tasks.registering(Jar::class) {
-    description = "A Javadoc JAR containing Dokka Javadoc"
-    from(tasks.dokkaGeneratePublicationJavadoc.flatMap { it.outputDirectory })
+val dokkaHtmlJar by tasks.registering(Jar::class) {
+    description = "A Javadoc JAR containing Dokka HTML"
+    val htmlTask = tasks.named("dokkaGeneratePublicationHtml")
+    dependsOn(htmlTask)
+    from(htmlTask.map { it.outputs.files })
     archiveClassifier.set("javadoc")
 }
 
@@ -65,7 +66,7 @@ publishing {
     publications {
         create<MavenPublication>("release") {
             from(components["java"])
-            artifact(dokkaJavadocJar)
+            artifact(dokkaHtmlJar)
             artifact(sourcesJar)
 
             groupId = project.group.toString()

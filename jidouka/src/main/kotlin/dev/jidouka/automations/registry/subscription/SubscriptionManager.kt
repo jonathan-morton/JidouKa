@@ -2,7 +2,9 @@ package dev.jidouka.automations.registry.subscription
 
 import dev.jidouka.aliases.EntityId
 import dev.jidouka.aliases.SubscriptionId
+import dev.jidouka.aliases.WebhookId
 import dev.jidouka.automations.dsl.triggers.TriggerMetadata
+import dev.jidouka.automations.dsl.triggers.WebhookTriggerConfiguration
 import dev.jidouka.automations.registry.TriggerKey
 import dev.jidouka.client.ConnectionManager
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -42,6 +44,7 @@ internal class WebSocketSubscriptionManager(
 ) : SubscriptionManager {
     private val automationIdsByTriggerKey = ConcurrentHashMap<TriggerKey, MutableSet<AutomationId>>()
     private val subscriptionIds = ConcurrentHashMap<TriggerKey, SubscriptionId>()
+    private val webhookConfigurations = ConcurrentHashMap<WebhookId, WebhookSubscriptionConfiguration>()
 
     private val mutex = Mutex()
     private val logger = KotlinLogging.logger {}
@@ -50,6 +53,8 @@ internal class WebSocketSubscriptionManager(
         metadata: TriggerMetadata,
         automationId: String
     ) = mutex.withLock {
+        validateWebhookConfigurations(metadata)
+
         val keys: List<TriggerKey> = TriggerKey.getKeys(metadata)
         logger.debug { "Subscribing automation '$automationId' to ${keys.size} trigger key(s)" }
 
@@ -66,6 +71,7 @@ internal class WebSocketSubscriptionManager(
                     val keyDescription = when (key) {
                         is TriggerKey.Entity -> "entity '${key.entityId}'"
                         is TriggerKey.Event -> "event type '${key.eventType}'"
+                        is TriggerKey.Webhook -> "webhook '${key.webhookId}'"
                     }
                     logger.info { "Creating new subscription to $keyDescription for automation '$automationId'" }
                     val subscriptionId = subscribeToClient(key)
@@ -76,6 +82,31 @@ internal class WebSocketSubscriptionManager(
                 }
             } else {
                 logger.debug { "Added automation '$automationId' to existing subscription for key '$key' (${automationsSet.size} automation(s) total)" }
+            }
+        }
+    }
+
+    @Throws(IllegalStateException::class)
+    private fun validateWebhookConfigurations(metadata: TriggerMetadata) {
+        if (metadata !is TriggerMetadata.WebhookTrigger) return
+
+        metadata.webhookConfigurations.forEach { (webhookId, configuration) ->
+            val existingConfiguration = webhookConfigurations[webhookId]
+
+            existingConfiguration?.let {
+                WebhookTriggerConfiguration.requireWebhookConfigurationMatches(
+                    webhookId = webhookId,
+                    existingAllowedMethods = existingConfiguration.allowedMethods,
+                    incomingAllowedMethods = configuration.allowedMethods,
+                    existingIsLocalOnly = existingConfiguration.isLocalOnly,
+                    incomingIsLocalOnly = configuration.isLocalOnly
+
+                )
+            } ?: run {
+                webhookConfigurations[webhookId] = WebhookSubscriptionConfiguration(
+                    configuration.allowedMethods,
+                    configuration.isLocalOnly
+                )
             }
         }
     }
@@ -94,10 +125,16 @@ internal class WebSocketSubscriptionManager(
 
             if (automationIds.isEmpty()) {
                 automationIdsByTriggerKey.remove(key)
+
+                if (key is TriggerKey.Webhook) {
+                    webhookConfigurations.remove(key.webhookId)
+                }
+
                 val subscriptionId = subscriptionIds.remove(key) ?: return@forEach
                 val keyDescription = when (key) {
                     is TriggerKey.Entity -> "entity '${key.entityId}'"
                     is TriggerKey.Event -> "event type '${key.eventType}'"
+                    is TriggerKey.Webhook -> "webhook '${key.webhookId}'"
                 }
                 logger.info { "Removing subscription to $keyDescription (no automations remaining)" }
                 unsubscribeFromClient(subscriptionId)
@@ -130,6 +167,7 @@ internal class WebSocketSubscriptionManager(
                         val keyDescription = when (key) {
                             is TriggerKey.Entity -> "entity ${key.entityId}"
                             is TriggerKey.Event -> "event ${key.eventType}"
+                            is TriggerKey.Webhook -> "webhook '${key.webhookId}'"
                         }
                         """
                         Resubscribed to $keyDescription for ${automationIds.size} automations
@@ -165,6 +203,17 @@ internal class WebSocketSubscriptionManager(
 
             is TriggerKey.Event -> {
                 connectionManager.subscribeToEvent(key.eventType)
+            }
+
+            is TriggerKey.Webhook -> {
+                val configuration = webhookConfigurations[key.webhookId]
+                    ?: error("No webhook configuration found: ${key.webhookId}")
+
+                connectionManager.subscribeToWebhook(
+                    webhookId = key.webhookId,
+                    allowedMethods = configuration.allowedMethods,
+                    isLocalOnly = configuration.isLocalOnly
+                )
             }
         }
 
@@ -204,17 +253,20 @@ internal class WebSocketSubscriptionManager(
     override fun getStatistics(): SubscriptionStatistics {
         val entityStats = mutableMapOf<String, Int>()
         val eventStats = mutableMapOf<String, Int>()
+        val webhookStats = mutableMapOf<String, Int>()
 
         automationIdsByTriggerKey.forEach { (key, automations) ->
             when (key) {
                 is TriggerKey.Entity -> entityStats[key.entityId] = automations.size
                 is TriggerKey.Event -> eventStats[key.eventType] = automations.size
+                is TriggerKey.Webhook -> webhookStats[key.webhookId] = automations.size
             }
         }
 
         return SubscriptionStatistics(
             entities = entityStats,
-            events = eventStats
+            events = eventStats,
+            webhooks = webhookStats
         )
     }
 }

@@ -1,5 +1,6 @@
 package dev.jidouka.network.models.hass.websocket
 
+import dev.jidouka.network.models.hass.websocket.trigger.WebhookHttpMethod
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -22,7 +23,16 @@ internal data class TriggerConfiguration(
     @SerialName("for")
     val forDuration: String? = null,
     @SerialName("attribute")
-    val attribute: String? = null
+    val attribute: String? = null,
+    //region webhooks
+    @SerialName("webhook_id")
+    val webhookId: String? = null,
+    @SerialName("allowed_methods")
+    val allowedMethods: List<WebhookHttpMethod>? = null,
+    @SerialName("local_only")
+    val isLocalOnly: Boolean? = null
+
+    //endregion
 ) {
     @Serializable
     enum class Platform {
@@ -34,6 +44,9 @@ internal data class TriggerConfiguration(
 
         @SerialName("event")
         Event,
+
+        @SerialName("webhook")
+        Webhook,
     }
 }
 
@@ -58,7 +71,7 @@ internal data class TriggerEvent(
     @SerialName("variables")
     val variables: TriggerVariables,
     @SerialName("context")
-    val context: Context
+    val context: Context? = null
 )
 
 @Serializable
@@ -90,7 +103,17 @@ internal data class TriggerData(
     @SerialName("event")
     val event: EventData? = null,
     @SerialName("description")
-    val description: String
+    val description: String,
+    //region webhook
+    @SerialName("webhook_id")
+    val webhookId: String? = null,
+    @SerialName("json")
+    val json: JsonObject? = null,
+    @SerialName("data")
+    val data: MultiDictRepresentation? = null,
+    @SerialName("query")
+    val query: MultiDictRepresentation? = null
+    //endregion
 )
 
 //endregion
@@ -115,3 +138,17 @@ internal data class StateData(
     @SerialName("context")
     val context: Context
 )
+
+//region Webhook
+/**
+ * Home Assistant's representation of Python MultiDictProxy objects.
+ * Used for form data and query parameters in webhook payloads.
+ */
+@Serializable
+internal data class MultiDictRepresentation(
+    @SerialName("__type")
+    val type: String,
+    @SerialName("repr")
+    val representation: String
+)
+//endregion

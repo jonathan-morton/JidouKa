@@ -2,6 +2,7 @@ package dev.jidouka.automations.dsl.builders
 
 import dev.jidouka.aliases.EntityId
 import dev.jidouka.aliases.EventTypeId
+import dev.jidouka.aliases.WebhookId
 import dev.jidouka.automations.dsl.AutomationDsl
 import dev.jidouka.automations.dsl.providers.DefaultTimeExtensionsProvider
 import dev.jidouka.automations.dsl.providers.EntityProvider
@@ -12,11 +13,15 @@ import dev.jidouka.automations.dsl.scopes.LoggingScope
 import dev.jidouka.automations.dsl.triggers.TimeTriggers
 import dev.jidouka.automations.dsl.triggers.TriggerContext
 import dev.jidouka.automations.dsl.triggers.TriggerMetadata
+import dev.jidouka.automations.dsl.triggers.WebhookTriggerConfiguration
 import dev.jidouka.components.BaseState
 import dev.jidouka.components.Entity
 import dev.jidouka.components.StateTransition
+import dev.jidouka.network.models.hass.websocket.trigger.WebhookHttpMethod
+import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.registry.EntityRegistry
 import dev.jidouka.registry.EventRegistry
+import dev.jidouka.registry.WebhookRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
@@ -43,6 +48,7 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
     private val clock: Clock,
     private val entityRegistry: EntityRegistry,
     eventRegistry: EventRegistry,
+    private val webhookRegistry: WebhookRegistry,
     automationId: String,
     override val timeZone: TimeZone = TimeZone.currentSystemDefault()
 ) : EntityProvider by RegistryEntityProvider(entityRegistry),
@@ -54,6 +60,8 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
 
     private val entityIdsSet = mutableSetOf<EntityId>()
     private val eventTypesSet = mutableSetOf<EventTypeId>()
+    private val webhookConfigurations = mutableMapOf<WebhookId, WebhookTriggerConfiguration>()
+
 
     public val time: TimeTriggers = TimeTriggers(
         triggersBuilder = this,
@@ -365,6 +373,85 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
         }
     }
 
+    /**
+     * Trigger from a webhook call
+     *
+     * Multiple automations and triggers with an automation can use the same webhook ID. However, [allowedMethods] and
+     * [isLocalOnly] must match. If they do not match, [IllegalStateException] is thrown
+     *
+     * @param id The webhook ID `http://your-home-assistant:8123/api/webhook/some_hook_id`
+     * @param allowedMethods The Http methods allowed when making the webhook request
+     * @param isLocalOnly When `true` webhook calls can only be made from the same network as Home Assistant. To allow calls from the internet, set to `false`
+     * @param predicate Function returning true when the automation should trigger
+     */
+    @Throws(IllegalStateException::class)
+    public fun webhook(
+        id: WebhookId,
+        allowedMethods: Set<WebhookHttpMethod> = setOf(WebhookHttpMethod.PUT),
+        isLocalOnly: Boolean = true,
+        predicate: suspend (TriggerContext.Webhook) -> Boolean = { true }
+    ) {
+        val existingConfiguration = webhookConfigurations[id]
+        existingConfiguration?.let {
+            WebhookTriggerConfiguration.requireWebhookConfigurationMatches(
+                webhookId = id,
+                existingAllowedMethods = existingConfiguration.allowedMethods,
+                incomingAllowedMethods = allowedMethods,
+                existingIsLocalOnly = existingConfiguration.isLocalOnly,
+                incomingIsLocalOnly = isLocalOnly
+
+            )
+        }
+
+        val rawFlow = webhookRegistry.getOrCreateFlow(id)
+
+        val triggerFlow = rawFlow.mapNotNull { webhook ->
+            val context = TriggerContext.Webhook(
+                webhookId = webhook.webhookId,
+                jsonData = webhook.jsonData?.toNativeMap(),
+                formDataRepresentation = webhook.formDataRepresentation,
+                queryRepresentation = webhook.queryRepresentation
+            )
+
+            if (predicate(context)) {
+                context
+            } else {
+                null
+            }
+        }
+
+        triggers.add(triggerFlow)
+        if (existingConfiguration == null) {
+            webhookConfigurations[id] = WebhookTriggerConfiguration(
+                id = id,
+                allowedMethods = allowedMethods,
+                isLocalOnly = isLocalOnly
+            )
+        }
+    }
+
+    /**
+     * Trigger from a webhook call
+     *
+     * Multiple automations and triggers with an automation can use the same webhook ID. However, [configuration] must match.
+     * If they do not match, [IllegalStateException] is thrown
+     *
+     * @param configuration Configuration for setting up the webhook
+     * @param predicate Function returning true when the automation should trigger
+     */
+    @Throws(IllegalStateException::class)
+    public fun webhook(
+        configuration: WebhookTriggerConfiguration,
+        predicate: suspend (TriggerContext.Webhook) -> Boolean = { true }
+    ) {
+        webhook(
+            id = configuration.id,
+            allowedMethods = configuration.allowedMethods,
+            isLocalOnly = configuration.isLocalOnly,
+            predicate = predicate
+        )
+    }
+
     private fun <T> buildFlowTrigger(
         source: Flow<T>,
         label: String?,
@@ -439,6 +526,19 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
 
         if (eventTypesSet.isNotEmpty()) {
             metadata.add(TriggerMetadata.EventTrigger(eventTypesSet))
+        }
+
+        if (webhookConfigurations.isNotEmpty()) {
+            metadata.add(TriggerMetadata.WebhookTrigger(webhookConfigurations.toMap()))
+        }
+
+        logger.debug {
+            """
+                Built trigger metadata 
+                ${entityIdsSet.size} entity ID(s)
+                ${eventTypesSet.size} event type(s)
+                ${webhookConfigurations.size} webhook ID(s)
+            """.trimIndent()
         }
 
         logger.debug { "Built trigger metadata: ${entityIdsSet.size} entity ID(s), ${eventTypesSet.size} event type(s)" }

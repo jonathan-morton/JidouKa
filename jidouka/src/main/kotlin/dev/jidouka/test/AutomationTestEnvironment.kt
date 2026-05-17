@@ -8,11 +8,13 @@ import dev.jidouka.automations.registry.AutomationRegistry
 import dev.jidouka.automations.registry.subscription.AutomationId
 import dev.jidouka.components.StateObject
 import dev.jidouka.components.event.EventObject
+import dev.jidouka.components.webhook.WebhookObject
 import dev.jidouka.network.models.hass.websocket.Context
 import dev.jidouka.test.di.testModule
 import dev.jidouka.test.monitors.TestTimeMonitor
 import dev.jidouka.test.registry.InMemoryEventRegistry
 import dev.jidouka.test.registry.InMemoryStateRegistry
+import dev.jidouka.test.registry.InMemoryWebhookRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -21,6 +23,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlinx.serialization.json.JsonObject
 import org.koin.plugin.module.dsl.koinApplication
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -65,6 +68,7 @@ public class AutomationTestEnvironment(
 
     private val stateRegistry: InMemoryStateRegistry = koin.get()
     private val eventRegistry: InMemoryEventRegistry = koin.get()
+    private val webhookRegistry: InMemoryWebhookRegistry = koin.get()
     private val timeMonitor: TestTimeMonitor = koin.get()
 
     private val automationRegistry: AutomationRegistry = koin.get()
@@ -188,6 +192,31 @@ public class AutomationTestEnvironment(
         eventRegistry.emitEvent(eventObject)
         testScope.testScheduler.runCurrent()
         logger.debug { "Emitting event '$eventType' with data $data" }
+    }
+
+    /**
+     * Emits a webhook payload, triggering any listening automations.
+     * @param webhookId The webhook ID that received the request
+     * @param json Parsed JSON request body (null if not JSON)
+     * @param dataRepr Raw Python MultiDictProxy repr of form data
+     * @param queryRepr Raw Python MultiDictProxy repr of URL query parameters
+     */
+    public suspend fun emitWebhook(
+        webhookId: String,
+        json: JsonObject? = null,
+        dataRepr: String? = null,
+        queryRepr: String? = null
+    ) {
+        webhookRegistry.emitWebhook(
+            WebhookObject(
+                webhookId = webhookId,
+                jsonData = json,
+                formDataRepresentation = dataRepr,
+                queryRepresentation = queryRepr
+            )
+        )
+        testScope.testScheduler.runCurrent()
+        logger.debug { "Emitting webhook '$webhookId' (json=${json != null}, dataRepr=${dataRepr != null}, queryRepr=${queryRepr != null})" }
     }
 
     /**

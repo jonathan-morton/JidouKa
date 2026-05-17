@@ -2,8 +2,10 @@ package dev.jidouka.client
 
 import dev.jidouka.actions.ActionResponse
 import dev.jidouka.aliases.SubscriptionId
+import dev.jidouka.aliases.WebhookId
 import dev.jidouka.network.models.hass.websocket.ActionTarget
 import dev.jidouka.network.models.hass.websocket.StateData
+import dev.jidouka.network.models.hass.websocket.trigger.WebhookHttpMethod
 import kotlinx.serialization.json.JsonObject
 
 internal interface HomeAssistantWebSocket {
@@ -20,6 +22,12 @@ internal interface HomeAssistantWebSocket {
      * @return The subscription ID from Home Assistant
      */
     suspend fun subscribeToEvent(eventType: String): SubscriptionId
+
+    suspend fun subscribeToWebhook(
+        id: WebhookId,
+        allowedMethods: Set<WebhookHttpMethod>,
+        isLocalOnly: Boolean
+    ): SubscriptionId
 
     /**
      * Unsubscribe from state changes using the subscription ID.
