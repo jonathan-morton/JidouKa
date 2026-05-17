@@ -95,7 +95,7 @@ plugins {
 }
 
 dependencies {
-    implementation("dev.jidouka:jidouka:0.2.0")
+    implementation("dev.jidouka:jidouka:0.3.0")
 }
 ```
 
