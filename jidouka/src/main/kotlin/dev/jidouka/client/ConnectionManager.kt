@@ -250,7 +250,7 @@ internal class HomeAssistantConnectionManager(
     private fun StateData.toStateObject() = StateObject(
         entityId = entityId,
         state = state,
-        rawAttributes = attributes.toNativeMap(),
+        attributesRaw = attributes.toNativeMap(),
         lastChanged = lastChanged,
         lastUpdated = lastUpdated,
         lastReported = null

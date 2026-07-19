@@ -38,6 +38,17 @@ public class Entity<S : BaseState<S>> internal constructor(
         replay = 1
     )
 
+    /**
+     * Returns the most recent state from the replay cache, or null if no state
+     * has been received yet. Unlike [state], this does not ensure the entity
+     * is subscribed. Prefer [state] when writing automations.
+     */
+    public val cachedState: S?
+        get() = (stateFlow as? SharedFlow)?.replayCache?.firstOrNull()
+
+    public val stateValue: String?
+        get() = cachedState?.stateRaw
+
     internal val changeFlow: SharedFlow<StateTransition>
         get() = stateRegistry.getChangeFlow(entityId)
 
@@ -72,7 +83,14 @@ public abstract class BaseState<S : BaseState<S>> : State {
     final override var previous: S? = null
         internal set
 
-    public abstract val rawAttributes: Map<String, Any?>
+    public abstract val stateRaw: String
+
+    public abstract val attributesRaw: Map<String, Any?>
+
+    @Deprecated("use attributesRaw", replaceWith = ReplaceWith("attributesRaw"))
+    public val rawAttributes: Map<String, Any?>
+        get() = attributesRaw
+
     public abstract val lastChanged: Instant?
     public abstract val lastUpdated: Instant?
     public abstract val lastReported: Instant?
@@ -93,11 +111,15 @@ public data class StateTransition(
 public data class StateObject(
     val entityId: String,
     val state: String,
-    val rawAttributes: Map<String, Any?>,
+    val attributesRaw: Map<String, Any?>,
     val lastChanged: Instant,
     val lastUpdated: Instant,
     val lastReported: Instant?
 ) {
+    @Deprecated("use attributesRaw", replaceWith = ReplaceWith("attributesRaw"))
+    val rawAttributes: Map<String, Any?>
+        get() = attributesRaw
+
     private val logger = KotlinLogging.logger {}
 
     /**

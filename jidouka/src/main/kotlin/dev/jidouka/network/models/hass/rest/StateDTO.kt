@@ -28,7 +28,7 @@ internal data class StateDTO(
     fun toStateObject() = StateObject(
         entityId = entityId,
         state = state,
-        rawAttributes = attributes.toNativeMap(),
+        attributesRaw = attributes.toNativeMap(),
         lastChanged = lastChanged,
         lastUpdated = lastUpdated,
         lastReported = null
