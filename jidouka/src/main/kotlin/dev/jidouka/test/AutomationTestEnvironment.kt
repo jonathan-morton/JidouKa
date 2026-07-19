@@ -90,7 +90,7 @@ public class AutomationTestEnvironment(
         val stateObject = StateObject(
             entityId = entityId,
             state = state,
-            rawAttributes = attributes,
+            attributesRaw = attributes,
             lastChanged = currentTime,
             lastUpdated = currentTime,
             lastReported = currentTime
@@ -150,7 +150,7 @@ public class AutomationTestEnvironment(
         val newState = StateObject(
             entityId = entityId,
             state = state,
-            rawAttributes = attributes,
+            attributesRaw = attributes,
             lastChanged = currentTime,
             lastUpdated = currentTime,
             lastReported = currentTime

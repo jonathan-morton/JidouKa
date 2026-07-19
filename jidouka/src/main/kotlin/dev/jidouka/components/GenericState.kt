@@ -6,12 +6,15 @@ import kotlin.time.Instant
  * Generic state implementation that can represent any Home Assistant entity state.
  */
 public class GenericState(
-    public val state: String,
-    override val rawAttributes: Map<String, Any?>,
+    override val stateRaw: String,
+    override val attributesRaw: Map<String, Any?>,
     override val lastChanged: Instant,
     override val lastUpdated: Instant,
     override val lastReported: Instant?
 ) : BaseState<GenericState>() {
+    @Deprecated("use stateRaw", replaceWith = ReplaceWith("stateRaw"))
+    public val state: String
+        get() = stateRaw
 
     public companion object {
         public val parser: Parser<GenericState> = object : Parser<GenericState> {
@@ -21,8 +24,8 @@ public class GenericState(
                 }
 
                 return GenericState(
-                    state = stateObject.state,
-                    rawAttributes = stateObject.rawAttributes,
+                    stateRaw = stateObject.state,
+                    attributesRaw = stateObject.attributesRaw,
                     lastChanged = stateObject.lastChanged,
                     lastUpdated = stateObject.lastUpdated,
                     lastReported = stateObject.lastReported

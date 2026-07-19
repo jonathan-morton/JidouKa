@@ -34,7 +34,7 @@ object ExampleAutomations {
         val weatherEntity = entity(WEATHER_FORECAST_HOME_ID)
 
         fun bathroomIsCool(temperatureState: GenericState?): Boolean {
-            val bathroomTemperatureF = temperatureState?.state?.toFloatOrNull()
+            val bathroomTemperatureF = temperatureState?.stateRaw?.toFloatOrNull()
             val bathroomIsCool = bathroomTemperatureF?.let { it < bathroomIsWarmTemperatureF }
                 ?: false // Will rely just on cold outside
 
@@ -47,8 +47,8 @@ object ExampleAutomations {
                 contactEntity,
                 temperatureEntity
             ) { motion, contact, temperature ->
-                val hasMotionAndDoorClosed = (motion?.state == "on")
-                        && (contact?.state == "off")
+                val hasMotionAndDoorClosed = (motion?.stateRaw == "on")
+                        && (contact?.stateRaw == "off")
 
                 hasMotionAndDoorClosed && bathroomIsCool(temperature)
             }
@@ -59,7 +59,7 @@ object ExampleAutomations {
         }
 
         actions {
-            while (contactEntity.state()?.state == "off" && bathroomIsCool(temperatureEntity.state())) {
+            while (contactEntity.state()?.stateRaw == "off" && bathroomIsCool(temperatureEntity.state())) {
                 actions.call(
                     domain = Domain.Switch.id,
                     action = "turn_on",
@@ -99,14 +99,14 @@ object ExampleAutomations {
         val outletEntity = entity(OUTLET_HEATER_ID)
 
         suspend fun outletOn(log: LoggingScope): Boolean {
-            val predicate = outletEntity.state()?.state?.equals("on", ignoreCase = true) == true
+            val predicate = outletEntity.state()?.stateRaw?.equals("on", ignoreCase = true) == true
             log.info { "Outlet is on: $predicate" }
             return predicate
         }
 
         triggers {
             state(contactSensorEntity) {
-                it?.state.equals("on", ignoreCase = true)
+                it?.stateRaw.equals("on", ignoreCase = true)
             }
         }
 
@@ -143,7 +143,7 @@ object ExampleAutomations {
 
         triggers {
             state(motionSensor) { motion ->
-                motion?.state == "on"
+                motion?.stateRaw == "on"
             }
         }
 
@@ -235,7 +235,7 @@ object ExampleAutomations {
 
     private suspend fun weatherIsColdOutside(weatherEntity: Entity<GenericState>): Boolean {
         val coldWeatherTemperatureF = 55
-        val temperatureF = weatherEntity.state()?.rawAttributes?.get("temperature") as? Int ?: return false
+        val temperatureF = weatherEntity.state()?.attributesRaw?.get("temperature") as? Int ?: return false
         return temperatureF < coldWeatherTemperatureF
 
     }

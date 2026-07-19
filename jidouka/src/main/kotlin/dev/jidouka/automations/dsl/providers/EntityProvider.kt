@@ -7,9 +7,9 @@ import dev.jidouka.components.Entity
 import dev.jidouka.components.GenericState
 import dev.jidouka.registry.EntityRegistry
 
-internal interface EntityProvider {
-    fun entity(entityId: EntityId): Entity<GenericState>
-    fun <S : BaseState<S>> entity(
+public interface EntityProvider {
+    public fun entity(entityId: EntityId): Entity<GenericState>
+    public fun <S : BaseState<S>> entity(
         entityId: String,
         domain: Domain<S>,
     ): Entity<S>

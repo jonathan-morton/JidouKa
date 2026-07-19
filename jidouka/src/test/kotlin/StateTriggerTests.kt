@@ -41,7 +41,7 @@ class StateTriggerTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(hallwayMotionId)) { it?.state == "on" }
+                state(entity = entity(hallwayMotionId)) { it?.stateRaw == "on" }
             }
             actions {
                 val hallwayLight = entity(hallwayLightId)
@@ -84,7 +84,7 @@ class StateTriggerTests : BaseUnitTest() {
                 val medicineContactSensor = entity(medicineContactId)
                 state(medicineContactSensor) { contact ->
                     contact ?: return@state false
-                    contact.state == "off"
+                    contact.stateRaw == "off"
                 }
             }
 
@@ -120,7 +120,7 @@ class StateTriggerTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(hallwayMotionId)) { it?.state == "on" }
+                state(entity = entity(hallwayMotionId)) { it?.stateRaw == "on" }
             }
             actions {
                 val hallwayLight = entity(hallwayLightId)
@@ -150,15 +150,15 @@ class StateTriggerTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(motionEntityId)) { it?.state == "on" }
+                state(entity = entity(motionEntityId)) { it?.stateRaw == "on" }
             }
             conditions {
                 condition {
                     val sunRiseState = entity(sunRisingId).state()
                     val sunSetState = entity(sunSettingId).state()
 
-                    val sunRiseTimeString = sunRiseState?.rawAttributes?.get("today") as? String
-                    val sunSetTimeString = sunSetState?.rawAttributes?.get("today") as? String
+                    val sunRiseTimeString = sunRiseState?.attributesRaw?.get("today") as? String
+                    val sunSetTimeString = sunSetState?.attributesRaw?.get("today") as? String
 
                     if (sunRiseTimeString != null && sunSetTimeString != null) {
                         val sunRiseTime = Instant.parse(sunRiseTimeString).toLocalDateTime(time.timeZone).time
@@ -215,7 +215,7 @@ class StateTriggerTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(garageDoorId)) { it?.state == "closed" }
+                state(entity = entity(garageDoorId)) { it?.stateRaw == "closed" }
             }
             actions {
                 delay(5.minutes)
@@ -253,7 +253,7 @@ class StateTriggerTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(bathroomMotionId)) { it?.state == "on" }
+                state(entity = entity(bathroomMotionId)) { it?.stateRaw == "on" }
             }
             actions {
                 delay(10.minutes)
@@ -268,7 +268,7 @@ class StateTriggerTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(bathroomDoorId)) { it?.state == "on" }
+                state(entity = entity(bathroomDoorId)) { it?.stateRaw == "on" }
             }
             actions {
                 automations.cancel("heater_on")
@@ -310,8 +310,8 @@ class StateTriggerTests : BaseUnitTest() {
                     entity1 = entity(temperatureId),
                     entity2 = entity(humidityId)
                 ) { temp, humidity ->
-                    val tempValue = temp?.state?.toDoubleOrNull() ?: return@combineState false
-                    val humidityValue = humidity?.state?.toDoubleOrNull() ?: return@combineState false
+                    val tempValue = temp?.stateRaw?.toDoubleOrNull() ?: return@combineState false
+                    val humidityValue = humidity?.stateRaw?.toDoubleOrNull() ?: return@combineState false
                     tempValue > 75.0 && humidityValue > 65.0
                 }
             }
@@ -355,7 +355,7 @@ class StateTriggerTests : BaseUnitTest() {
                     entity2 = entity(doorId),
                     entity3 = entity(lightId)
                 ) { motion, door, light ->
-                    motion?.state == "on" && door?.state == "off" && light?.state == "off"
+                    motion?.stateRaw == "on" && door?.stateRaw == "off" && light?.stateRaw == "off"
                 }
             }
             actions {
@@ -404,7 +404,7 @@ class StateTriggerTests : BaseUnitTest() {
                     entity2 = entity(sensor2Id),
                     distinctUntilChanged = false
                 ) { temp, humidity ->
-                    temp?.state != null && humidity?.state != null
+                    temp?.stateRaw != null && humidity?.stateRaw != null
                 }
             }
             actions {
@@ -437,8 +437,8 @@ class StateTriggerTests : BaseUnitTest() {
         ) {
             triggers {
                 state(entity = entity(thermostatId)) { currentState ->
-                    val current = currentState?.rawAttributes?.get("current_temperature") as? String
-                    val previous = currentState?.previous?.rawAttributes?.get("current_temperature") as? String
+                    val current = currentState?.attributesRaw?.get("current_temperature") as? String
+                    val previous = currentState?.previous?.attributesRaw?.get("current_temperature") as? String
 
                     if (current != null && previous != null) {
                         val currentTemp = current.toDoubleOrNull() ?: 0.0
@@ -499,9 +499,9 @@ class StateTriggerTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(motion1Id)) { it?.state == "on" }
-                state(entity = entity(motion2Id)) { it?.state == "on" }
-                state(entity = entity(doorId)) { it?.state == "on" }
+                state(entity = entity(motion1Id)) { it?.stateRaw == "on" }
+                state(entity = entity(motion2Id)) { it?.stateRaw == "on" }
+                state(entity = entity(doorId)) { it?.stateRaw == "on" }
             }
             actions {
                 actions.call("light", "turn_on") {
@@ -546,7 +546,7 @@ class StateTriggerTests : BaseUnitTest() {
             triggers {
                 state(entity = entity(alarmId)) { currentState ->
                     // Trigger only when transitioning from armed to disarmed
-                    currentState?.previous?.state == "armed_away" && currentState.state == "disarmed"
+                    currentState?.previous?.stateRaw == "armed_away" && currentState.stateRaw == "disarmed"
                 }
             }
             actions {
@@ -591,7 +591,7 @@ class StateTriggerTests : BaseUnitTest() {
             id = "heater",
             mode = AutomationMode.Single
         ) {
-            triggers { state(entity(windowId)) { it?.state == "closed" } }
+            triggers { state(entity(windowId)) { it?.stateRaw == "closed" } }
             actions {
                 actions.call("switch", "turn_on") {
                     entity(outletHeaterId)
@@ -629,7 +629,7 @@ class StateTriggerTests : BaseUnitTest() {
         ) {
             triggers {
                 state(entity(hallwayId)) {
-                    it?.state == "on"
+                    it?.stateRaw == "on"
                 }
             }
             actions {
@@ -672,7 +672,7 @@ class StateTriggerTests : BaseUnitTest() {
             mode = AutomationMode.Parallel(5)
         ) {
             triggers {
-                state(entity = entity(sensorId)) { it?.state == "hot" }
+                state(entity = entity(sensorId)) { it?.stateRaw == "hot" }
             }
             actions {
                 actions.call("switch", "turn_on") { entity(fanId) }
@@ -709,7 +709,7 @@ class StateTriggerTests : BaseUnitTest() {
                         entity1 = entity(tempId),
                         entity2 = entity(humidityId)
                     ) { temp, _ ->
-                        (temp?.state?.toDoubleOrNull() ?: 0.0) > 70.0
+                        (temp?.stateRaw?.toDoubleOrNull() ?: 0.0) > 70.0
                     }
                 }
                 actions {
@@ -741,7 +741,7 @@ class StateTriggerTests : BaseUnitTest() {
             id = "faulty",
             mode = AutomationMode.Single
         ) {
-            triggers { state(entity(motionId)) { it?.state == "on" } }
+            triggers { state(entity(motionId)) { it?.stateRaw == "on" } }
             actions { error("service unavailable") }
         }
 
@@ -769,7 +769,7 @@ class StateTriggerTests : BaseUnitTest() {
         ) {
             triggers {
                 state(entity = entity(motionId)) {
-                    it?.state == "on" && time.isBetween(LocalTime(22, 0), LocalTime(6, 0))
+                    it?.stateRaw == "on" && time.isBetween(LocalTime(22, 0), LocalTime(6, 0))
                 }
             }
             actions {
@@ -813,7 +813,7 @@ class StateTriggerTests : BaseUnitTest() {
         ) {
             triggers {
                 state(entity = entity(presenceId)) {
-                    it?.state == "home" && time.isBetween(LocalTime(9, 0), LocalTime(17, 0))
+                    it?.stateRaw == "home" && time.isBetween(LocalTime(9, 0), LocalTime(17, 0))
                 }
             }
             actions {
@@ -857,7 +857,7 @@ class StateTriggerTests : BaseUnitTest() {
         ) {
             triggers {
                 state(entity = entity(alarmId)) {
-                    it?.state == "dismissed" && time.isBetween(DayOfWeek.MONDAY, DayOfWeek.FRIDAY)
+                    it?.stateRaw == "dismissed" && time.isBetween(DayOfWeek.MONDAY, DayOfWeek.FRIDAY)
                 }
             }
             actions {
@@ -897,7 +897,7 @@ class StateTriggerTests : BaseUnitTest() {
         ) {
             triggers {
                 state(entity = entity(thermostatId)) {
-                    it?.state == "heat" && time.isBetween(Month.NOVEMBER to 1, Month.FEBRUARY to 28)
+                    it?.stateRaw == "heat" && time.isBetween(Month.NOVEMBER to 1, Month.FEBRUARY to 28)
                 }
             }
             actions {
@@ -940,7 +940,7 @@ class StateTriggerTests : BaseUnitTest() {
         ) {
             triggers {
                 state(entity = entity(motionId)) {
-                    it?.state == "on" && time.localTime >= LocalTime(18, 0)
+                    it?.stateRaw == "on" && time.localTime >= LocalTime(18, 0)
                 }
             }
             actions {
@@ -983,7 +983,7 @@ class StateTriggerTests : BaseUnitTest() {
         ) {
             triggers {
                 state(entity = entity(presenceId)) {
-                    it?.state == "home" &&
+                    it?.stateRaw == "home" &&
                             time.localDate.month == Month.DECEMBER &&
                             time.localDate.day == 25
                 }

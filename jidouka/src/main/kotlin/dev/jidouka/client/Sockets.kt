@@ -544,7 +544,7 @@ internal class HomeAssistantWebSocketClient(
         return StateObject(
             entityId = this.entityId,
             state = this.state,
-            rawAttributes = this.attributes.toNativeMap(),
+            attributesRaw = this.attributes.toNativeMap(),
             lastChanged = this.lastChanged,
             lastUpdated = this.lastUpdated,
             lastReported = this.lastReported
