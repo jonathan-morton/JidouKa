@@ -253,7 +253,8 @@ internal class HomeAssistantConnectionManager(
         attributesRaw = attributes.toNativeMap(),
         lastChanged = lastChanged,
         lastUpdated = lastUpdated,
-        lastReported = null
+        lastReported = null,
+        context = context
     )
 }
 

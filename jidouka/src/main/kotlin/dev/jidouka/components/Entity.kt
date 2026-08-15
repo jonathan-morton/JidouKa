@@ -2,6 +2,7 @@ package dev.jidouka.components
 
 import dev.jidouka.automations.AutomationContext
 import dev.jidouka.automations.registry.subscription.SubscriptionManager
+import dev.jidouka.network.models.hass.websocket.Context
 import dev.jidouka.registry.StateRegistry
 import dev.jidouka.usecases.EnsureEntitySubscribedAndCurrentUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -95,6 +96,8 @@ public abstract class BaseState<S : BaseState<S>> : State {
     public abstract val lastUpdated: Instant?
     public abstract val lastReported: Instant?
 
+    public abstract val context: Context?
+
     /**
      * Parser for converting raw StateObject into typed BaseState instances.
      */
@@ -114,7 +117,8 @@ public data class StateObject(
     val attributesRaw: Map<String, Any?>,
     val lastChanged: Instant,
     val lastUpdated: Instant,
-    val lastReported: Instant?
+    val lastReported: Instant?,
+    val context: Context?,
 ) {
     @Deprecated("use attributesRaw", replaceWith = ReplaceWith("attributesRaw"))
     val rawAttributes: Map<String, Any?>

@@ -547,7 +547,8 @@ internal class HomeAssistantWebSocketClient(
             attributesRaw = this.attributes.toNativeMap(),
             lastChanged = this.lastChanged,
             lastUpdated = this.lastUpdated,
-            lastReported = this.lastReported
+            lastReported = this.lastReported,
+            context = this.context
         )
     }
 

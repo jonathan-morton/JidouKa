@@ -31,6 +31,7 @@ internal data class StateDTO(
         attributesRaw = attributes.toNativeMap(),
         lastChanged = lastChanged,
         lastUpdated = lastUpdated,
-        lastReported = null
+        lastReported = null,
+        context = null
     )
 }

@@ -84,7 +84,8 @@ public class AutomationTestEnvironment(
     public fun setEntityState(
         entityId: EntityId,
         state: String,
-        attributes: Map<String, Any?> = emptyMap()
+        attributes: Map<String, Any?> = emptyMap(),
+        context: Context? = null
     ) {
         val currentTime = timeMonitor.currentTime
         val stateObject = StateObject(
@@ -93,7 +94,8 @@ public class AutomationTestEnvironment(
             attributesRaw = attributes,
             lastChanged = currentTime,
             lastUpdated = currentTime,
-            lastReported = currentTime
+            lastReported = currentTime,
+            context = context
         )
 
         stateRegistry.setCurrentState(entityId = entityId, stateObject = stateObject)
@@ -142,7 +144,8 @@ public class AutomationTestEnvironment(
     public fun emitState(
         entityId: EntityId,
         state: String,
-        attributes: Map<String, Any?> = emptyMap()
+        attributes: Map<String, Any?> = emptyMap(),
+        context: Context? = null
     ) {
         val previousState = stateRegistry.getCurrentState(entityId)
 
@@ -153,7 +156,8 @@ public class AutomationTestEnvironment(
             attributesRaw = attributes,
             lastChanged = currentTime,
             lastUpdated = currentTime,
-            lastReported = currentTime
+            lastReported = currentTime,
+            context = context
         )
 
         stateRegistry.updateState(

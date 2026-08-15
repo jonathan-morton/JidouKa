@@ -1,5 +1,6 @@
 package dev.jidouka.components
 
+import dev.jidouka.network.models.hass.websocket.Context
 import kotlin.time.Instant
 
 /**
@@ -10,7 +11,9 @@ public class GenericState(
     override val attributesRaw: Map<String, Any?>,
     override val lastChanged: Instant,
     override val lastUpdated: Instant,
-    override val lastReported: Instant?
+    override val lastReported: Instant?,
+    override val context: Context?
+
 ) : BaseState<GenericState>() {
     @Deprecated("use stateRaw", replaceWith = ReplaceWith("stateRaw"))
     public val state: String
@@ -28,7 +31,8 @@ public class GenericState(
                     attributesRaw = stateObject.attributesRaw,
                     lastChanged = stateObject.lastChanged,
                     lastUpdated = stateObject.lastUpdated,
-                    lastReported = stateObject.lastReported
+                    lastReported = stateObject.lastReported,
+                    context = stateObject.context
                 )
             }
         }
