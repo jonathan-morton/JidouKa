@@ -35,7 +35,7 @@ public class Entity<S : BaseState<S>> internal constructor(
         return@map state
     }.shareIn(
         scope = scope,
-        started = SharingStarted.Eagerly,
+        started = SharingStarted.Lazily,
         replay = 1
     )
 
@@ -45,7 +45,7 @@ public class Entity<S : BaseState<S>> internal constructor(
      * is subscribed. Prefer [state] when writing automations.
      */
     public val cachedState: S?
-        get() = (stateFlow as? SharedFlow)?.replayCache?.firstOrNull()
+        get() = currentRegistryState()
 
     public val stateValue: String?
         get() = cachedState?.stateRaw
@@ -65,7 +65,7 @@ public class Entity<S : BaseState<S>> internal constructor(
                 SubscriptionManager.UNTRACKED_SUBSCRIPTION_ID
             }
         ensureSubscribedUseCase.ensure(entityId, automationId)
-        return (stateFlow as? SharedFlow)?.replayCache?.firstOrNull()
+        return currentRegistryState()
     }
 
     public fun parseTransition(transition: StateTransition): S? {
@@ -73,6 +73,15 @@ public class Entity<S : BaseState<S>> internal constructor(
         val previousState = transition.fromState?.let { parser.parse(transition.fromState) }
         state?.previous = previousState
         return state
+    }
+
+    private fun currentRegistryState(): S? {
+        return stateRegistry.getStateFlow(entityId)
+            .replayCache
+            .firstOrNull()
+            ?.let { stateTransition ->
+                parseTransition(stateTransition)
+            }
     }
 }
 
