@@ -32,7 +32,6 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.merge
 import kotlinx.datetime.TimeZone
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
@@ -41,9 +40,8 @@ import kotlin.time.Instant
  * @property events Namespace for creating triggers based on events
  * @property log Namespace for logging
  */
-@OptIn(ExperimentalTime::class)
 @AutomationDsl
-public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructor(
+public class TriggersBuilder internal constructor(
     private val clockFlow: SharedFlow<Instant>,
     private val clock: Clock,
     private val entityRegistry: EntityRegistry,
@@ -86,7 +84,7 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
      *                            If false, trigger on every state change where predicate is true.
      * @param predicate Function returning true when automation should trigger
      */
-    public fun <S : BaseState<S>> state(
+    public fun <S : BaseState> state(
         entity: Entity<S>,
         distinctUntilChanged: Boolean = true,
         predicate: suspend (S?) -> Boolean
@@ -132,7 +130,7 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
      *                            If false, trigger whenever any entity changes and predicate is true.
      * @param predicate Function combining both entity states, returning true when automation should trigger
      */
-    public fun <S1 : BaseState<S1>, S2 : BaseState<S2>> combineState(
+    public fun <S1 : BaseState, S2 : BaseState> combineState(
         entity1: Entity<S1>,
         entity2: Entity<S2>,
         distinctUntilChanged: Boolean = true,
@@ -159,7 +157,7 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
      *                            If false, trigger whenever any entity changes and predicate is true.
      * @param predicate Function combining all entity states, returning true when automation should trigger
      */
-    public fun <S1 : BaseState<S1>, S2 : BaseState<S2>, S3 : BaseState<S3>> combineState(
+    public fun <S1 : BaseState, S2 : BaseState, S3 : BaseState> combineState(
         entity1: Entity<S1>,
         entity2: Entity<S2>,
         entity3: Entity<S3>,
@@ -185,7 +183,7 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
      *                            If false, trigger whenever any entity changes and predicate is true.
      * @param predicate Function combining all entity states, returning true when automation should trigger
      */
-    public fun <S1 : BaseState<S1>, S2 : BaseState<S2>, S3 : BaseState<S3>, S4 : BaseState<S4>> combineState(
+    public fun <S1 : BaseState, S2 : BaseState, S3 : BaseState, S4 : BaseState> combineState(
         entity1: Entity<S1>,
         entity2: Entity<S2>,
         entity3: Entity<S3>,
@@ -213,7 +211,7 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
      *                            If false, trigger whenever any entity changes and predicate is true.
      * @param predicate Function combining all entity states, returning true when automation should trigger
      */
-    public fun <S1 : BaseState<S1>, S2 : BaseState<S2>, S3 : BaseState<S3>, S4 : BaseState<S4>, S5 : BaseState<S5>> combineState(
+    public fun <S1 : BaseState, S2 : BaseState, S3 : BaseState, S4 : BaseState, S5 : BaseState> combineState(
         entity1: Entity<S1>,
         entity2: Entity<S2>,
         entity3: Entity<S3>,
@@ -284,7 +282,7 @@ public class TriggersBuilder @OptIn(ExperimentalTime::class) internal constructo
         }
     }
 
-    public fun <S : BaseState<S>> observe(entity: Entity<S>): Flow<S?> {
+    public fun <S : BaseState> observe(entity: Entity<S>): Flow<S?> {
         addEntityId(entity)
         return entity.changeFlow.map {
             entity.parseTransition(it)

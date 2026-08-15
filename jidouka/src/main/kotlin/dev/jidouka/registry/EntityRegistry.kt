@@ -26,7 +26,7 @@ internal class EntityRegistry internal constructor(
         return get(entityId, domain)
     }
 
-    fun <S : BaseState<S>> get(
+    fun <S : BaseState> get(
         entityId: String,
         domain: Domain<S>,
     ): Entity<S> {
@@ -68,7 +68,7 @@ internal class EntityRegistry internal constructor(
         )
     }
 
-    private fun <S : BaseState<S>> createTypedEntity(
+    private fun <S : BaseState> createTypedEntity(
         entityId: String,
         parser: BaseState.Parser<S>,
         domain: Domain<S>,

@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlin.time.Instant
 
-public class Entity<S : BaseState<S>> internal constructor(
+public class Entity<S : BaseState> internal constructor(
     objectId: String,
     public val domain: Domain<S>,
     private val parser: BaseState.Parser<S>,
@@ -69,10 +69,8 @@ public class Entity<S : BaseState<S>> internal constructor(
     }
 
     public fun parseTransition(transition: StateTransition): S? {
-        val state = parser.parse((transition.toState))
-        val previousState = transition.fromState?.let { parser.parse(transition.fromState) }
-        state?.previous = previousState
-        return state
+        val previousState = transition.fromState?.let { parser.parse(transition.fromState, null) }
+        return parser.parse(transition.toState, previousState)
     }
 
     private fun currentRegistryState(): S? {
@@ -89,9 +87,8 @@ internal interface State {
     val previous: State? get() = null
 }
 
-public abstract class BaseState<S : BaseState<S>> : State {
-    final override var previous: S? = null
-        internal set
+public abstract class BaseState : State {
+    public abstract override val previous: BaseState?
 
     public abstract val stateRaw: String
 
@@ -110,8 +107,8 @@ public abstract class BaseState<S : BaseState<S>> : State {
     /**
      * Parser for converting raw StateObject into typed BaseState instances.
      */
-    public interface Parser<S : BaseState<*>> {
-        public fun parse(stateObject: StateObject): S?
+    public interface Parser<S : BaseState> {
+        public fun parse(stateObject: StateObject, previous: S?): S?
     }
 }
 
