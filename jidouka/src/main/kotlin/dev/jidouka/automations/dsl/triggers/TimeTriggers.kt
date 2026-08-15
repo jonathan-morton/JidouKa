@@ -101,7 +101,7 @@ public class TimeTriggers internal constructor(
      * @param entity The entity whose state contains timing information
      * @param extractInstant Lambda that extracts the target Instant from the entity state (or null to disable)
      */
-    public fun <S : BaseState<S>> at(
+    public fun <S : BaseState> at(
         entity: Entity<S>,
         fireImmediately: Boolean = false,
         extractInstant: (S?) -> Instant?

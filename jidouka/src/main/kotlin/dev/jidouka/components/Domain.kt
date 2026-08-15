@@ -3,7 +3,7 @@ package dev.jidouka.components
 /**
  * Every entity in Home Assistant belongs to a general category known as a domain
  */
-public class Domain<S : BaseState<S>>(
+public class Domain<S : BaseState>(
     public val id: String,
     public val entityParser: BaseState.Parser<S>? = null
 ) {

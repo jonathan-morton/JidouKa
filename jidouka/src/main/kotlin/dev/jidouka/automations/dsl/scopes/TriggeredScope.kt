@@ -92,7 +92,7 @@ public class TriggeredScope internal constructor(
     /**
      * Result of parsing a state trigger with typed states.
      */
-    public data class StateTriggerResult<S : BaseState<S>>(
+    public data class StateTriggerResult<S : BaseState>(
         val entityId: EntityId,
         val state: S,
         val previousState: S?
@@ -106,10 +106,11 @@ public class TriggeredScope internal constructor(
     public fun state(): StateTriggerResult<GenericState>? {
         val transition = resolveSingleStateTransition(context) ?: return null
 
-        val state = GenericState.parser.parse(transition.toState) ?: return null
         val previousState = transition.fromState?.let {
-            GenericState.parser.parse(it)
+            GenericState.parser.parse(stateObject = it, previous = null)
         }
+
+        val state = GenericState.parser.parse(transition.toState, previousState) ?: return null
 
         return StateTriggerResult(
             entityId = transition.toState.entityId,
@@ -119,7 +120,7 @@ public class TriggeredScope internal constructor(
         )
     }
 
-    public fun <S : BaseState<S>> state(domain: Domain<S>): StateTriggerResult<S>? {
+    public fun <S : BaseState> state(domain: Domain<S>): StateTriggerResult<S>? {
         val transition = resolveSingleStateTransition(context) ?: return null
         val entityId = transition.toState.entityId
 
@@ -127,10 +128,11 @@ public class TriggeredScope internal constructor(
             return null
         }
 
-        val state = domain.entityParser?.parse(transition.toState) ?: return null
         val previousState = transition.fromState?.let {
-            domain.entityParser.parse(it)
+            domain.entityParser?.parse(stateObject = it, previous = null)
         }
+
+        val state = domain.entityParser?.parse(transition.toState, previousState) ?: return null
 
         return StateTriggerResult(
             entityId = entityId,
@@ -140,15 +142,16 @@ public class TriggeredScope internal constructor(
         )
     }
 
-    public fun <S : BaseState<S>> state(entity: Entity<S>): StateTriggerResult<S>? {
+    public fun <S : BaseState> state(entity: Entity<S>): StateTriggerResult<S>? {
         val transition = resolveStateTransition(entity) ?: return null
 
         val state = entity.parseTransition(transition) ?: return null
+        @Suppress("UNCHECKED_CAST") val previousState = state.previous as? S?
 
         return StateTriggerResult(
             entityId = entity.entityId,
             state = state,
-            previousState = state.previous
+            previousState = previousState
         )
     }
 
