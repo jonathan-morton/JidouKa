@@ -40,11 +40,14 @@ internal class EntityRegistry internal constructor(
         @Suppress("UNCHECKED_CAST")
         val entity = entities.computeIfAbsent(entityId) {
             wasCreated = true
-            val parser = domain.entityParser ?: GenericState.parser as BaseState.Parser<S>
+
+            val registeredDomain = DomainParserRegistry.getDomain(domainId = domain.id) ?: domain
+
+            val parser = registeredDomain.entityParser ?: GenericState.parser
             createTypedEntity(
                 entityId = entityId,
-                parser = parser,
-                domain = domain
+                parser = parser as BaseState.Parser<S>,
+                domain = registeredDomain as Domain<S>
             )
         } as Entity<S>
 

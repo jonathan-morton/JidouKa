@@ -3,6 +3,7 @@ package dev.jidouka.api
 import dev.jidouka.automations.Automation
 import dev.jidouka.automations.AutomationMode
 import dev.jidouka.automations.dsl.builders.AutomationBuilder
+import dev.jidouka.registry.DomainParserRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import dev.jidouka.automations.automation as internalAutomation
 
@@ -22,6 +23,7 @@ public object Jidouka {
         configure: JidoukaBuilder.() -> Unit
     ): JidoukaApplication {
         logger.info { "Initializing Jidouka application" }
+        DomainParserRegistry.installFromClasspath()
 
         val builder = JidoukaBuilder()
         builder.configure()
