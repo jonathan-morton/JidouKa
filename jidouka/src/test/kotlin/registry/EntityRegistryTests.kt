@@ -1,16 +1,19 @@
 package dev.jidouka.registry
 
 import dev.jidouka.BaseUnitTest
+import dev.jidouka.aliases.EntityId
 import dev.jidouka.components.Domain
 import dev.jidouka.components.Entity
 import dev.jidouka.components.GenericState
 import dev.jidouka.components.StateObject
 import dev.jidouka.state.TestState
 import dev.jidouka.test.usecases.TestEnsureEntitySubscribedAndCurrentUseCase
+import dev.jidouka.usecases.EnsureEntitySubscribedAndCurrentUseCase
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.test.TestScope
 import org.junit.After
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertSame
 import kotlin.time.Instant
 
@@ -27,10 +30,13 @@ class EntityRegistryTests : BaseUnitTest() {
         DomainParserRegistry.reset()
     }
 
-    private fun TestScope.newRegistry(stateRegistry: StateRegistry): EntityRegistry {
+    private fun TestScope.newRegistry(
+        stateRegistry: StateRegistry,
+        ensureSubscribedUseCase: EnsureEntitySubscribedAndCurrentUseCase = TestEnsureEntitySubscribedAndCurrentUseCase()
+    ): EntityRegistry {
         return EntityRegistry(
             stateRegistry = stateRegistry,
-            ensureSubscribedUseCase = TestEnsureEntitySubscribedAndCurrentUseCase(),
+            ensureSubscribedUseCase = ensureSubscribedUseCase,
             scope = backgroundScope
         )
     }
@@ -90,5 +96,49 @@ class EntityRegistryTests : BaseUnitTest() {
 
         assertTrue(entity.cachedState is GenericState)
     }
+
+    //region enumeration
+    @Test
+    fun `allEntityIds returns every entity known to the state registry`() = runTestScope {
+        val stateRegistry = HomeAssistantStateRegistry()
+        val registry = newRegistry(stateRegistry)
+
+        stateRegistry.setInitialState("light.kitchen", stateObject("light.kitchen", "on"))
+        stateRegistry.setInitialState("sensor.hallway_temp", stateObject("sensor.hallway_temp", "70.0"))
+        stateRegistry.setInitialState("switch.fan", stateObject("switch.fan", "off"))
+
+        assertEquals(setOf("light.kitchen", "sensor.hallway_temp", "switch.fan"), registry.getAllEntityIds())
+    }
+
+    @Test
+    fun `entityIdsForDomain returns exactly the matching entity IDs`() = runTestScope {
+        val stateRegistry = HomeAssistantStateRegistry()
+        val registry = newRegistry(stateRegistry)
+
+        stateRegistry.setInitialState("light.kitchen", stateObject("light.kitchen", "on"))
+        stateRegistry.setInitialState("light.hallway", stateObject("light.hallway", "off"))
+        stateRegistry.setInitialState("sensor.hallway_temp", stateObject("sensor.hallway_temp", "70.0"))
+
+        assertEquals(setOf("light.kitchen", "light.hallway"), registry.getEntityIdsForDomain("light"))
+    }
+
+    @Test
+    fun `allEntityIds and entityIdsForDomain never trigger a subscription`() = runTestScope {
+        val stateRegistry = HomeAssistantStateRegistry()
+        val registry = newRegistry(
+            stateRegistry,
+            ensureSubscribedUseCase = object : EnsureEntitySubscribedAndCurrentUseCase {
+                override suspend fun ensure(entityId: EntityId, automationId: String) {
+                    error("ensure() must never be called by enumeration alone (entity: $entityId)")
+                }
+            })
+
+        stateRegistry.setInitialState("sensor.battery_1", stateObject("sensor.battery_1", "15"))
+        stateRegistry.setInitialState("sensor.battery_2", stateObject("sensor.battery_2", "80"))
+
+        assertTrue(registry.getAllEntityIds().isNotEmpty())
+        assertTrue(registry.getEntityIdsForDomain("sensor").isNotEmpty())
+    }
+    //endregion
 
 }
