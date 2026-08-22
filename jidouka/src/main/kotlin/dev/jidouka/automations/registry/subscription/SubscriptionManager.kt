@@ -8,8 +8,13 @@ import dev.jidouka.automations.dsl.triggers.WebhookTriggerConfiguration
 import dev.jidouka.automations.registry.TriggerKey
 import dev.jidouka.client.ConnectionManager
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import org.koin.core.annotation.Single
 import java.util.concurrent.ConcurrentHashMap
 
@@ -47,6 +52,7 @@ internal class WebSocketSubscriptionManager(
     private val webhookConfigurations = ConcurrentHashMap<WebhookId, WebhookSubscriptionConfiguration>()
 
     private val mutex = Mutex()
+    private val websocketRequestsSemaphore = Semaphore(permits = MAX_CONCURRENT_SUBSCRIBE_REQUESTS)
     private val logger = KotlinLogging.logger {}
 
     override suspend fun subscribe(
@@ -58,31 +64,41 @@ internal class WebSocketSubscriptionManager(
         val keys: List<TriggerKey> = TriggerKey.getKeys(metadata)
         logger.debug { "Subscribing automation '$automationId' to ${keys.size} trigger key(s)" }
 
+        val newKeys = mutableListOf<TriggerKey>()
+
         keys.forEach { key ->
             val automationsSet: MutableSet<AutomationId> = automationIdsByTriggerKey.computeIfAbsent(key) {
                 ConcurrentHashMap.newKeySet()
             }
 
-            val wasEmpty = automationsSet.isEmpty()
+            val needsSubscription = subscriptionIds.containsKey(key).not()
             automationsSet.add(automationId)
 
-            if (wasEmpty) {
-                try {
-                    val keyDescription = when (key) {
-                        is TriggerKey.Entity -> "entity '${key.entityId}'"
-                        is TriggerKey.Event -> "event type '${key.eventType}'"
-                        is TriggerKey.Webhook -> "webhook '${key.webhookId}'"
-                    }
-                    logger.info { "Creating new subscription to $keyDescription for automation '$automationId'" }
-                    val subscriptionId = subscribeToClient(key)
-                    subscriptionIds[key] = subscriptionId
-                } catch (exception: Exception) {
-                    logger.error(exception) { "Failed to subscribe to key '$key' for automation '$automationId'" }
-                    automationsSet.remove(automationId)
-                }
+            if (needsSubscription) {
+                newKeys.add(key)
             } else {
                 logger.debug { "Added automation '$automationId' to existing subscription for key '$key' (${automationsSet.size} automation(s) total)" }
             }
+        }
+
+        if (newKeys.isEmpty()) {
+            return@withLock
+        }
+
+        logger.info { "Creating ${newKeys.size} new subscription(s) for automation '$automationId'" }
+
+        val results: List<Pair<TriggerKey, Result<SubscriptionId>>> = subscribeToKeys(newKeys)
+
+        results.forEach { (key, result) ->
+            result
+                .onSuccess { subscriptionId ->
+                    subscriptionIds[key] = subscriptionId
+                    logger.debug { "Subscribed to ${describeTriggerKey(key)} with subscription ID: $subscriptionId" }
+                }
+                .onFailure { exception ->
+                    logger.error(exception) { "Failed to subscribe to key '$key' for automation '$automationId'" }
+                    automationIdsByTriggerKey[key]?.remove(automationId)
+                }
         }
     }
 
@@ -118,34 +134,52 @@ internal class WebSocketSubscriptionManager(
         val keys: List<TriggerKey> = TriggerKey.getKeys(metadata)
         logger.debug { "Unsubscribing automation '$automationId' from ${keys.size} trigger key(s)" }
 
+        val keysToUnsubscribe = mutableListOf<Pair<TriggerKey, SubscriptionId>>()
+
+
         keys.forEach { key ->
             val automationIds = automationIdsByTriggerKey[key] ?: return@forEach
             automationIds.remove(automationId)
             logger.debug { "Removed automation '$automationId' from subscription for key '$key' (${automationIds.size} automation(s) remaining)" }
 
             if (automationIds.isEmpty()) {
-                automationIdsByTriggerKey.remove(key)
-
-                if (key is TriggerKey.Webhook) {
-                    webhookConfigurations.remove(key.webhookId)
-                }
-
-                val subscriptionId = subscriptionIds.remove(key) ?: return@forEach
-                val keyDescription = when (key) {
-                    is TriggerKey.Entity -> "entity '${key.entityId}'"
-                    is TriggerKey.Event -> "event type '${key.eventType}'"
-                    is TriggerKey.Webhook -> "webhook '${key.webhookId}'"
-                }
-                logger.info { "Removing subscription to $keyDescription (no automations remaining)" }
-                unsubscribeFromClient(subscriptionId)
+                val subscriptionId = subscriptionIds[key] ?: return@forEach
+                keysToUnsubscribe.add(key to subscriptionId)
             }
+
+        }
+
+        if (keysToUnsubscribe.isEmpty()) {
+            return@withLock
+        }
+
+        logger.info { "Removing ${keysToUnsubscribe.size} subscription(s) with no automations remaining" }
+
+        val results = unsubscribeToKeys(keysToUnsubscribe)
+
+        results.forEach { (key, result) ->
+            result
+                .onSuccess {
+                    automationIdsByTriggerKey.remove(key)
+
+                    if (key is TriggerKey.Webhook) {
+                        webhookConfigurations.remove(key.webhookId)
+                    }
+
+                    logger.debug { "Removed subscription to ${describeTriggerKey(key)}" }
+
+                    subscriptionIds.remove(key)
+                }
+                .onFailure { exception ->
+                    logger.error(exception) { "Failed to unsubscribe from $key" }
+                }
         }
     }
 
     /**
      * Used after a disconnection to resubscribe
      */
-    override suspend fun resubscribeAll() {
+    override suspend fun resubscribeAll() = mutex.withLock {
         logger.info {
             "Re-establishing ${automationIdsByTriggerKey.size} subscriptions after reconnection"
         }
@@ -157,30 +191,24 @@ internal class WebSocketSubscriptionManager(
         var successCount = 0
         var failureCount = 0
 
-        automationIdsByTriggerKey.forEach { (key, automationIds) ->
-            if (automationIds.isNotEmpty()) {
-                try {
-                    val newSubscriptionId = subscribeToClient(key)
+        val keysToResubscribe: List<TriggerKey> = automationIdsByTriggerKey
+            .filterValues { it.isNotEmpty() }
+            .keys
+            .toList()
+
+        val results: List<Pair<TriggerKey, Result<SubscriptionId>>> = subscribeToKeys(keysToResubscribe)
+
+        results.forEach { (key, result) ->
+            result
+                .onSuccess { newSubscriptionId ->
                     subscriptionIds[key] = newSubscriptionId
-
-                    logger.debug {
-                        val keyDescription = when (key) {
-                            is TriggerKey.Entity -> "entity ${key.entityId}"
-                            is TriggerKey.Event -> "event ${key.eventType}"
-                            is TriggerKey.Webhook -> "webhook '${key.webhookId}'"
-                        }
-                        """
-                        Resubscribed to $keyDescription for ${automationIds.size} automations
-                        New subscription ID: $newSubscriptionId
-                        """.trimIndent()
-                    }
-
                     successCount++
-                } catch (exception: Exception) {
+                    logger.debug { "Resubscribed to ${describeTriggerKey(key)}. New subscription ID: $newSubscriptionId" }
+                }
+                .onFailure { exception ->
                     failureCount++
                     logger.error(exception) { "Failed to resubscribe to key: $key" }
                 }
-            }
         }
 
         if (failureCount > 0) {
@@ -193,6 +221,30 @@ internal class WebSocketSubscriptionManager(
         } else {
             logger.info { "All subscriptions restored successfully (${automationIdsByTriggerKey.size} total, ${subscriptionIds.size} now active)" }
         }
+    }
+
+    private suspend fun subscribeToKeys(
+        keys: List<TriggerKey>
+    ): List<Pair<TriggerKey, Result<SubscriptionId>>> = coroutineScope {
+        keys.map { key ->
+            async {
+                key to websocketRequestsSemaphore.withPermit {
+                    runCatching { subscribeToClient(key) }
+                }
+            }
+        }.awaitAll()
+    }
+
+    private suspend fun unsubscribeToKeys(
+        keysWithSubscriptionIds: List<Pair<TriggerKey, SubscriptionId>>
+    ): List<Pair<TriggerKey, Result<Unit>>> = coroutineScope {
+        keysWithSubscriptionIds.map { (key, subscriptionId) ->
+            async {
+                key to websocketRequestsSemaphore.withPermit {
+                    runCatching { unsubscribeFromClient(subscriptionId) }
+                }
+            }
+        }.awaitAll()
     }
 
     private suspend fun subscribeToClient(key: TriggerKey): SubscriptionId {
@@ -226,6 +278,12 @@ internal class WebSocketSubscriptionManager(
     ) {
         logger.debug { "Unsubscribing from client with subscription ID: $subscriptionId" }
         connectionManager.unsubscribe(subscriptionId)
+    }
+
+    private fun describeTriggerKey(key: TriggerKey): String = when (key) {
+        is TriggerKey.Entity -> "entity '${key.entityId}'"
+        is TriggerKey.Event -> "event type '${key.eventType}'"
+        is TriggerKey.Webhook -> "webhook '${key.webhookId}'"
     }
 
     override fun hasActiveSubscription(entityId: EntityId): Boolean {
@@ -268,5 +326,9 @@ internal class WebSocketSubscriptionManager(
             events = eventStats,
             webhooks = webhookStats
         )
+    }
+
+    companion object {
+        private const val MAX_CONCURRENT_SUBSCRIBE_REQUESTS = 32
     }
 }
