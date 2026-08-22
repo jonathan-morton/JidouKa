@@ -58,6 +58,17 @@ internal class EntityRegistry internal constructor(
         return entity
     }
 
+    fun getAllEntityIds(): Set<EntityId> = stateRegistry.getAllEntityIds()
+
+    fun getEntityIdsForDomain(domainId: String): Set<EntityId> {
+        val entityIdsForDomain = getAllEntityIds()
+            .filterTo(mutableSetOf()) { entityId ->
+                parseEntityId(entityId).domainId == domainId
+            }
+
+        return entityIdsForDomain
+    }
+
     private fun parseEntityId(entityId: EntityId): EntityIdParts {
         val idParts = entityId.split(".")
 

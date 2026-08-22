@@ -1014,4 +1014,57 @@ class StateTriggerTests : BaseUnitTest() {
             assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
         }
     }
+
+    @Test
+    fun `states trigger fires when any member entity matches and identifies the firing entity`() = runTest {
+        val battery1Id = "sensor.battery_1"
+        val battery2Id = "sensor.battery_2"
+        val battery3Id = "sensor.battery_3"
+        val notifyId = "notify.mobile_app"
+
+        val `alert on any low battery` = Jidouka.automation(
+            id = "battery_alert",
+            mode = AutomationMode.Parallel(5)
+        ) {
+            triggers {
+                val batterySensors = listOf(
+                    entity(battery1Id),
+                    entity(battery2Id),
+                    entity(battery3Id)
+                )
+
+                state(batterySensors) { (it?.stateRaw?.toDoubleOrNull() ?: 100.0) < 20.0 }
+            }
+            actions {
+                val firedEntityId = triggered.state()?.entityId
+                actions.call(
+                    "notify", "mobile_app",
+                    data = mapOf("message" to "Low battery: $firedEntityId")
+                ) {
+                    entity(notifyId)
+                }
+            }
+        }
+
+        AutomationTestEnvironment.test(this) { env ->
+            env.setEntityState(battery1Id, "80")
+            env.setEntityState(battery2Id, "90")
+            env.setEntityState(battery3Id, "85")
+            env.register(`alert on any low battery`)
+
+            env.emitState(battery2Id, "15")
+
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+            val message = env.events<RecordedEvent.Action>()[0].data["message"]
+            assertEquals("Low battery: $battery2Id", message)
+
+            env.clearEvents()
+
+            env.emitState(battery1Id, "10")
+            assertEquals(1, env.events<RecordedEvent.Action>().size)
+            assertEquals("Low battery: $battery1Id", env.events<RecordedEvent.Action>()[0].data["message"])
+
+            assertTrue(env.events<RecordedEvent.AutomationFailed>().isEmpty())
+        }
+    }
 }

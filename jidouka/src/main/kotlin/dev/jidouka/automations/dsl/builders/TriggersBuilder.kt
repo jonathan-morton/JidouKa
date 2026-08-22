@@ -123,6 +123,28 @@ public class TriggersBuilder internal constructor(
         }
     }
 
+
+    /**
+     * Trigger when any entity state matches predicate.
+     *
+     * Use with care. This is the equivalent of calling individual state calls on each entity
+     * Large unfiltered lists of entities will cause a large number of subscriptions which may slow performance
+     *
+     * @param entities The entities to monitor
+     * @param distinctUntilChanged If true (default), only trigger when predicate result changes.
+     *                            If false, trigger on every state change where predicate is true.
+     * @param predicate Function returning true when automation should trigger
+     */
+    public fun <S : BaseState> state(
+        entities: List<Entity<S>>,
+        distinctUntilChanged: Boolean = true,
+        predicate: suspend (S?) -> Boolean
+    ) {
+        entities.forEach { entity ->
+            state(entity, distinctUntilChanged, predicate)
+        }
+    }
+
     /**
      * Combine two entities with a predicate.
      *
