@@ -4,12 +4,10 @@ import dev.jidouka.aliases.EntityId
 import dev.jidouka.aliases.EventTypeId
 import dev.jidouka.aliases.SubscriptionId
 import dev.jidouka.aliases.WebhookId
+import dev.jidouka.common.configuration.HomeAssistantConfiguration
+import dev.jidouka.common.network.models.hass.websocket.trigger.WebhookHttpMethod
 import dev.jidouka.components.StateObject
-import dev.jidouka.configuration.HomeAssistantConfiguration
 import dev.jidouka.network.NetworkResponse
-import dev.jidouka.network.models.hass.websocket.StateData
-import dev.jidouka.network.models.hass.websocket.trigger.WebhookHttpMethod
-import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.registry.StateRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.*
@@ -183,7 +181,7 @@ internal class HomeAssistantConnectionManager(
                 stateDataList.forEach { stateData ->
                     stateRegistry.setInitialState(
                         entityId = stateData.entityId,
-                        stateObject = stateData.toStateObject()
+                        stateObject = StateObject.from(stateData)
                     )
                 }
                 logger.info { "Initialized ${stateDataList.size} entity states" }
@@ -198,7 +196,7 @@ internal class HomeAssistantConnectionManager(
         val response = restClient.getState(entityId)
         return when (response) {
             is NetworkResponse.Success -> {
-                response.data.toStateObject()
+                StateObject.from(response.data)
             }
 
             is NetworkResponse.Failure -> {
@@ -246,15 +244,5 @@ internal class HomeAssistantConnectionManager(
             disconnect()
         }
     }
-
-    private fun StateData.toStateObject() = StateObject(
-        entityId = entityId,
-        state = state,
-        attributesRaw = attributes.toNativeMap(),
-        lastChanged = lastChanged,
-        lastUpdated = lastUpdated,
-        lastReported = null,
-        context = context
-    )
 }
 

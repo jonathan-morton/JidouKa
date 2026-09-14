@@ -1,7 +1,7 @@
 package dev.jidouka.example
 
 import dev.jidouka.api.Jidouka
-import dev.jidouka.configuration.HomeAssistantConfiguration
+import dev.jidouka.common.configuration.HomeAssistantConfiguration
 import dev.jidouka.configuration.JidoukaConfiguration
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
@@ -52,7 +52,7 @@ fun main() = runBlocking {
 
                     state(contactSensorEntity) {
                         val contactSensorOpenState = "on"
-                        it?.state.equals(contactSensorOpenState, ignoreCase = true)
+                        it?.stateRaw.equals(contactSensorOpenState, ignoreCase = true)
                     }
                 }
 

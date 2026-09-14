@@ -1,14 +1,16 @@
 package dev.jidouka.network.utils
 
+import dev.jidouka.common.network.utils.JsonPrimitiveKind
+import dev.jidouka.common.network.utils.classifyKind
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.long
 
 /**
  * Extension functions for converting JsonObject and JsonElement to native Kotlin types.
@@ -40,14 +42,12 @@ internal fun JsonElement.toNativeValue(): Any? {
         is JsonArray -> this.map { it.toNativeValue() }
         is JsonObject -> this.toNativeMap()
         is JsonNull -> null
-        is JsonPrimitive -> {
-            when {
-                isString -> content
-                else -> {
-                    // Try parsing in order of specificity
-                    booleanOrNull ?: intOrNull ?: longOrNull ?: doubleOrNull ?: content
-                }
-            }
+        is JsonPrimitive -> when (classifyKind()) {
+            JsonPrimitiveKind.STRING -> content
+            JsonPrimitiveKind.BOOLEAN -> boolean
+            JsonPrimitiveKind.INT -> int
+            JsonPrimitiveKind.LONG -> long
+            JsonPrimitiveKind.DOUBLE -> double
         }
     }
 }

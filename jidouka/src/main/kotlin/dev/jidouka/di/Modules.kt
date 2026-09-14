@@ -4,7 +4,7 @@ import dev.jidouka.automations.registry.subscription.SubscriptionManager
 import dev.jidouka.client.ConnectionManager
 import dev.jidouka.client.HomeAssistantConnectionManager
 import dev.jidouka.client.configureSockets
-import dev.jidouka.configuration.HomeAssistantConfiguration
+import dev.jidouka.common.configuration.HomeAssistantConfiguration
 import dev.jidouka.configuration.JidoukaConfiguration
 import dev.jidouka.configureSerialization
 import io.github.oshai.kotlinlogging.KotlinLogging

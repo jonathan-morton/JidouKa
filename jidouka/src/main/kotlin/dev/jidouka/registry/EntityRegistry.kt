@@ -1,6 +1,7 @@
 package dev.jidouka.registry
 
 import dev.jidouka.aliases.EntityId
+import dev.jidouka.common.network.utils.EntityIdParts
 import dev.jidouka.components.BaseState
 import dev.jidouka.components.Domain
 import dev.jidouka.components.Entity
@@ -21,7 +22,7 @@ internal class EntityRegistry internal constructor(
     private val logger = KotlinLogging.logger {}
 
     fun get(entityId: EntityId): Entity<GenericState> {
-        val parts = parseEntityId(entityId)
+        val parts = EntityIdParts.parse(entityId)
         val domain = Domain<GenericState>(parts.domainId)
         return get(entityId, domain)
     }
@@ -30,7 +31,7 @@ internal class EntityRegistry internal constructor(
         entityId: String,
         domain: Domain<S>,
     ): Entity<S> {
-        val parts = parseEntityId(entityId)
+        val parts = EntityIdParts.parse(entityId)
         require(parts.domainId == domain.id) {
             "Domain of entity ID ($entityId) does not match the expected domain (${domain.id})"
         }
@@ -63,23 +64,10 @@ internal class EntityRegistry internal constructor(
     fun getEntityIdsForDomain(domainId: String): Set<EntityId> {
         val entityIdsForDomain = getAllEntityIds()
             .filterTo(mutableSetOf()) { entityId ->
-                parseEntityId(entityId).domainId == domainId
+                EntityIdParts.parse(entityId).domainId == domainId
             }
 
         return entityIdsForDomain
-    }
-
-    private fun parseEntityId(entityId: EntityId): EntityIdParts {
-        val idParts = entityId.split(".")
-
-        require(idParts.size == 2) {
-            "Entity ID must be in format 'domain.object_id', got: '$entityId'"
-        }
-
-        return EntityIdParts(
-            domainId = idParts.first(),
-            objectId = idParts.last()
-        )
     }
 
     private fun <S : BaseState> createTypedEntity(
@@ -87,7 +75,7 @@ internal class EntityRegistry internal constructor(
         parser: BaseState.Parser<S>,
         domain: Domain<S>,
     ): Entity<S> {
-        val parts = parseEntityId(entityId)
+        val parts = EntityIdParts.parse(entityId)
 
         return Entity(
             objectId = parts.objectId,
@@ -98,9 +86,4 @@ internal class EntityRegistry internal constructor(
             scope = scope,
         )
     }
-
-    private data class EntityIdParts(
-        val domainId: String,
-        val objectId: String
-    )
 }

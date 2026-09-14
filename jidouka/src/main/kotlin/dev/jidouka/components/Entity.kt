@@ -2,7 +2,9 @@ package dev.jidouka.components
 
 import dev.jidouka.automations.AutomationContext
 import dev.jidouka.automations.registry.subscription.SubscriptionManager
-import dev.jidouka.network.models.hass.websocket.Context
+import dev.jidouka.common.network.models.hass.websocket.Context
+import dev.jidouka.common.network.models.hass.websocket.StateData
+import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.registry.StateRegistry
 import dev.jidouka.usecases.EnsureEntitySubscribedAndCurrentUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -153,5 +155,17 @@ public data class StateObject(
             }
         }
         return false
+    }
+
+    internal companion object {
+        fun from(stateData: StateData): StateObject = StateObject(
+            entityId = stateData.entityId,
+            state = stateData.state,
+            attributesRaw = stateData.attributes.toNativeMap(),
+            lastChanged = stateData.lastChanged,
+            lastUpdated = stateData.lastUpdated,
+            lastReported = stateData.lastReported,
+            context = stateData.context
+        )
     }
 }

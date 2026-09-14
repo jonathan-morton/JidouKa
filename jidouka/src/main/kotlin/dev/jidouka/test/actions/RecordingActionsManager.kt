@@ -3,8 +3,8 @@ package dev.jidouka.test.actions
 import dev.jidouka.actions.ActionResponse
 import dev.jidouka.actions.ActionsManager
 import dev.jidouka.automations.AutomationContext
-import dev.jidouka.network.JsonManager
-import dev.jidouka.network.models.hass.websocket.ActionTarget
+import dev.jidouka.common.network.JsonManager
+import dev.jidouka.common.network.models.hass.websocket.ActionTarget
 import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.test.RecordedEvent
 import io.github.oshai.kotlinlogging.KotlinLogging

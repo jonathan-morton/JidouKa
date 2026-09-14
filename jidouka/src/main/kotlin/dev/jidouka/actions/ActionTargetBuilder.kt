@@ -1,8 +1,8 @@
 package dev.jidouka.actions
 
 import dev.jidouka.aliases.EntityId
+import dev.jidouka.common.network.models.hass.websocket.ActionTarget
 import dev.jidouka.components.Entity
-import dev.jidouka.network.models.hass.websocket.ActionTarget
 
 /**
  * Builder for creating the targets of a Home Assistant service action call

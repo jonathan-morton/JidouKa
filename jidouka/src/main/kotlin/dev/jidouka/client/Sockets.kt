@@ -3,26 +3,26 @@ package dev.jidouka.client
 import dev.jidouka.actions.ActionResponse
 import dev.jidouka.aliases.SubscriptionId
 import dev.jidouka.aliases.WebhookId
+import dev.jidouka.common.configuration.HomeAssistantConfiguration
+import dev.jidouka.common.network.models.hass.websocket.ActionTarget
+import dev.jidouka.common.network.models.hass.websocket.EventData
+import dev.jidouka.common.network.models.hass.websocket.EventResponse
+import dev.jidouka.common.network.models.hass.websocket.HaRequest
+import dev.jidouka.common.network.models.hass.websocket.HaResponse
+import dev.jidouka.common.network.models.hass.websocket.MessageBase
+import dev.jidouka.common.network.models.hass.websocket.ResultResponse
+import dev.jidouka.common.network.models.hass.websocket.StateData
+import dev.jidouka.common.network.models.hass.websocket.TriggerConfiguration
+import dev.jidouka.common.network.models.hass.websocket.trigger.WebhookHttpMethod
+import dev.jidouka.common.network.repositories.MessageRepository
+import dev.jidouka.common.usecases.AuthenticationUseCase
 import dev.jidouka.components.StateObject
 import dev.jidouka.components.event.EventObject
 import dev.jidouka.components.webhook.WebhookObject
-import dev.jidouka.configuration.HomeAssistantConfiguration
-import dev.jidouka.network.JsonManager
-import dev.jidouka.network.models.hass.websocket.ActionTarget
-import dev.jidouka.network.models.hass.websocket.EventData
-import dev.jidouka.network.models.hass.websocket.EventResponse
-import dev.jidouka.network.models.hass.websocket.HaRequest
-import dev.jidouka.network.models.hass.websocket.HaResponse
-import dev.jidouka.network.models.hass.websocket.MessageBase
-import dev.jidouka.network.models.hass.websocket.ResultResponse
-import dev.jidouka.network.models.hass.websocket.StateData
-import dev.jidouka.network.models.hass.websocket.TriggerConfiguration
-import dev.jidouka.network.models.hass.websocket.trigger.WebhookHttpMethod
 import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.registry.EventRegistry
 import dev.jidouka.registry.StateRegistry
 import dev.jidouka.registry.WebhookRegistry
-import dev.jidouka.usecases.AuthenticationUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
@@ -45,7 +45,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.decodeFromJsonElement
 import org.koin.core.annotation.Single
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.atomics.AtomicInt
@@ -60,7 +59,7 @@ private typealias MessageId = Int
 internal class HomeAssistantWebSocketClient(
     private val authenticationUseCase: AuthenticationUseCase,
     private val stateRegistry: StateRegistry,
-    private val jsonManager: JsonManager,
+    private val messageRepository: MessageRepository,
     private val eventRegistry: EventRegistry,
     private val webhookRegistry: WebhookRegistry,
 ) : HomeAssistantWebSocket {
@@ -208,7 +207,7 @@ internal class HomeAssistantWebSocketClient(
                 pendingSubscriptions[messageId] = it()
             }
             val request = createRequest(messageId)
-            sendMessage(request)
+            sendRequest(request)
             messageId
         }
     }
@@ -341,11 +340,11 @@ internal class HomeAssistantWebSocketClient(
         }
     }
 
-    private suspend fun sendMessage(message: MessageBase) {
-        val jsonRequest = jsonManager.json.encodeToString(message)
+    private suspend fun sendRequest(request: HaRequest) {
+        val jsonRequest = messageRepository.serializeRequest(request)
 
-        if (shouldLogMessage(message)) {
-            logger.debug { "WebSocket sending: ${message::class.simpleName}" }
+        if (shouldLogMessage(request)) {
+            logger.debug { "WebSocket sending: ${request::class.simpleName}" }
         }
 
         session?.send(Frame.Text(jsonRequest))
@@ -375,9 +374,9 @@ internal class HomeAssistantWebSocketClient(
             }
     }
 
-    private fun parseMessage(rawJson: String): MessageBase {
+    private suspend fun parseMessage(rawJson: String): MessageBase {
         return try {
-            jsonManager.json.decodeFromString<MessageBase>(rawJson)
+            messageRepository.parseMessage(rawJson)
         } catch (exception: Exception) {
             logger.error(exception) { "Message parsing failed" }
             throw exception
@@ -404,8 +403,8 @@ internal class HomeAssistantWebSocketClient(
                     if (trigger.entityId != null && trigger.toState != null) {
                         stateRegistry.updateState(
                             entityId = trigger.entityId,
-                            newState = trigger.toState.toStateObject(),
-                            previousState = trigger.fromState?.toStateObject()
+                            newState = StateObject.from(trigger.toState),
+                            previousState = trigger.fromState?.let(StateObject::from)
                         )
                     } else {
                         logger.warn { "State trigger missing entityId or toState" }
@@ -450,7 +449,7 @@ internal class HomeAssistantWebSocketClient(
         }
     }
 
-    private fun handleResultResponse(response: ResultResponse) {
+    private suspend fun handleResultResponse(response: ResultResponse) {
         val operation = pendingSubscriptions.remove(response.id)
         when (operation) {
             is PendingOperation.Subscription -> {
@@ -473,7 +472,7 @@ internal class HomeAssistantWebSocketClient(
                 when (response) {
                     is ResultResponse.Success -> {
                         val actionResponse = response.result?.let { jsonElement ->
-                            val data = jsonManager.json.decodeFromJsonElement<ResultResponse.Success.Data>(jsonElement)
+                            val data = messageRepository.parseServiceActionData(jsonElement)
                             data.response?.let { responseJson -> ActionResponse(responseJson.toNativeMap()) }
                         }
 
@@ -494,7 +493,7 @@ internal class HomeAssistantWebSocketClient(
                 when (response) {
                     is ResultResponse.Success -> {
                         val statesData = response.result?.let { jsonElement ->
-                            jsonManager.json.decodeFromJsonElement<List<StateData>>(jsonElement)
+                            messageRepository.parseStates(jsonElement)
                         } ?: emptyList()
 
                         logger.debug { "get_states successful (ID: ${response.id}): ${statesData.size} states" }
@@ -538,18 +537,6 @@ internal class HomeAssistantWebSocketClient(
             is PendingOperation.ServiceActionCall,
             is PendingOperation.Subscription -> logger.error { "Unexpected operation type for pong response: ${operation::class.simpleName}" }
         }
-    }
-
-    private fun StateData.toStateObject(): StateObject {
-        return StateObject(
-            entityId = this.entityId,
-            state = this.state,
-            attributesRaw = this.attributes.toNativeMap(),
-            lastChanged = this.lastChanged,
-            lastUpdated = this.lastUpdated,
-            lastReported = this.lastReported,
-            context = this.context
-        )
     }
 
     private fun EventData.toEventObject(): EventObject {

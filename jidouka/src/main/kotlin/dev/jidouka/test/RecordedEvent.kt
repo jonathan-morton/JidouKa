@@ -1,7 +1,7 @@
 package dev.jidouka.test
 
 import dev.jidouka.automations.registry.subscription.AutomationId
-import dev.jidouka.network.models.hass.websocket.ActionTarget
+import dev.jidouka.common.network.models.hass.websocket.ActionTarget
 
 /**
  * Events recorded during automation execution in test environments.

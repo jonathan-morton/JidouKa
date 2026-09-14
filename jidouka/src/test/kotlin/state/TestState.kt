@@ -1,10 +1,10 @@
 package dev.jidouka.state
 
+import dev.jidouka.common.network.models.hass.websocket.Context
 import dev.jidouka.components.Domain
 import dev.jidouka.components.DomainParserProvider
 import dev.jidouka.components.GenericState
 import dev.jidouka.components.StateObject
-import dev.jidouka.network.models.hass.websocket.Context
 import kotlin.time.Instant
 
 class TestState(

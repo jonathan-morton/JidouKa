@@ -1,9 +1,9 @@
 package dev.jidouka.actions
 
 import dev.jidouka.client.HomeAssistantWebSocket
+import dev.jidouka.common.network.JsonManager
+import dev.jidouka.common.network.models.hass.websocket.ActionTarget
 import dev.jidouka.extensions.isTrue
-import dev.jidouka.network.JsonManager
-import dev.jidouka.network.models.hass.websocket.ActionTarget
 import dev.jidouka.network.utils.JsonObjectBuilder
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.Json

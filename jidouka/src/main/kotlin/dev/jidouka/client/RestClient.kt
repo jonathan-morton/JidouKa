@@ -1,10 +1,10 @@
 package dev.jidouka.client
 
 import dev.jidouka.aliases.EntityId
-import dev.jidouka.configuration.HomeAssistantConfiguration
-import dev.jidouka.network.JsonManager
+import dev.jidouka.common.configuration.HomeAssistantConfiguration
+import dev.jidouka.common.network.JsonManager
+import dev.jidouka.common.network.models.hass.websocket.StateData
 import dev.jidouka.network.NetworkResponse
-import dev.jidouka.network.models.hass.rest.StateDTO
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.*
 import io.ktor.client.request.*
@@ -13,7 +13,7 @@ import io.ktor.http.*
 import org.koin.core.annotation.Single
 
 internal interface RestClient {
-    suspend fun getState(entityId: EntityId): NetworkResponse<StateDTO>
+    suspend fun getState(entityId: EntityId): NetworkResponse<StateData>
 }
 
 @Single
@@ -25,11 +25,11 @@ internal class HomeAssistantRestClient(
 
     private val logger = KotlinLogging.logger {}
 
-    override suspend fun getState(entityId: EntityId): NetworkResponse<StateDTO> {
+    override suspend fun getState(entityId: EntityId): NetworkResponse<StateData> {
         logger.debug { "Fetching state for entity '$entityId' via REST" }
 
         val path = "/api/states/$entityId"
-        return request<StateDTO>(
+        return request<StateData>(
             method = HttpMethod.Get,
             path = path,
         )

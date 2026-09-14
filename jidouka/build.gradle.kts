@@ -18,6 +18,13 @@ kotlin {
         freeCompilerArgs.add("-Xexplicit-backing-fields") // https://kotlinlang.org/docs/whatsnew23.html#explicit-backing-fields
     }
     explicitApi = ExplicitApiMode.Strict
+
+    // jidouka-common is compiled into this module, not depended on. Never add
+    // libs.jidouka.common to dependencies {} here or every class is duplicated.
+    sourceSets {
+        main { kotlin.srcDir("../jidouka-common/src/main/kotlin") }
+        test { kotlin.srcDir("../jidouka-common/src/test/kotlin") }
+    }
 }
 
 dependencies {

@@ -14,10 +14,10 @@ import dev.jidouka.automations.dsl.triggers.TimeTriggers
 import dev.jidouka.automations.dsl.triggers.TriggerContext
 import dev.jidouka.automations.dsl.triggers.TriggerMetadata
 import dev.jidouka.automations.dsl.triggers.WebhookTriggerConfiguration
+import dev.jidouka.common.network.models.hass.websocket.trigger.WebhookHttpMethod
 import dev.jidouka.components.BaseState
 import dev.jidouka.components.Entity
 import dev.jidouka.components.StateTransition
-import dev.jidouka.network.models.hass.websocket.trigger.WebhookHttpMethod
 import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.registry.EntityRegistry
 import dev.jidouka.registry.EventRegistry
