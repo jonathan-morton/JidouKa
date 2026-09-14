@@ -3,7 +3,7 @@ package dev.jidouka.automations.dsl.scopes
 import dev.jidouka.actions.ActionResponse
 import dev.jidouka.actions.ActionTargetBuilder
 import dev.jidouka.actions.ActionsManager
-import dev.jidouka.network.models.hass.websocket.ActionTarget
+import dev.jidouka.common.network.models.hass.websocket.ActionTarget
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject

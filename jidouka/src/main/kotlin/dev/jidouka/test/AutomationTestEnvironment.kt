@@ -6,10 +6,10 @@ import dev.jidouka.api.automation.AutomationRegistrationScope
 import dev.jidouka.automations.Automation
 import dev.jidouka.automations.registry.AutomationRegistry
 import dev.jidouka.automations.registry.subscription.AutomationId
+import dev.jidouka.common.network.models.hass.websocket.Context
 import dev.jidouka.components.StateObject
 import dev.jidouka.components.event.EventObject
 import dev.jidouka.components.webhook.WebhookObject
-import dev.jidouka.network.models.hass.websocket.Context
 import dev.jidouka.test.di.testModule
 import dev.jidouka.test.monitors.TestTimeMonitor
 import dev.jidouka.test.registry.InMemoryEventRegistry

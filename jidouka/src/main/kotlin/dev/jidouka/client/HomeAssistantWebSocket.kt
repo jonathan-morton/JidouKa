@@ -3,9 +3,9 @@ package dev.jidouka.client
 import dev.jidouka.actions.ActionResponse
 import dev.jidouka.aliases.SubscriptionId
 import dev.jidouka.aliases.WebhookId
-import dev.jidouka.network.models.hass.websocket.ActionTarget
-import dev.jidouka.network.models.hass.websocket.StateData
-import dev.jidouka.network.models.hass.websocket.trigger.WebhookHttpMethod
+import dev.jidouka.common.network.models.hass.websocket.ActionTarget
+import dev.jidouka.common.network.models.hass.websocket.StateData
+import dev.jidouka.common.network.models.hass.websocket.trigger.WebhookHttpMethod
 import kotlinx.serialization.json.JsonObject
 
 internal interface HomeAssistantWebSocket {

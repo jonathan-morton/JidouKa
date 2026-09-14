@@ -1,6 +1,6 @@
 package dev.jidouka.components
 
-import dev.jidouka.network.models.hass.websocket.Context
+import dev.jidouka.common.network.models.hass.websocket.Context
 import kotlin.time.Instant
 
 /**

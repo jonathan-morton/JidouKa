@@ -2,7 +2,7 @@ package dev.jidouka.api
 
 import dev.jidouka.api.automation.AutomationRegistrationScope
 import dev.jidouka.client.ConnectionManager
-import dev.jidouka.configuration.HomeAssistantConfiguration
+import dev.jidouka.common.configuration.HomeAssistantConfiguration
 import dev.jidouka.configuration.JidoukaConfiguration
 import dev.jidouka.di.AppModule
 import dev.jidouka.di.NetworkModule

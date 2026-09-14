@@ -1,9 +1,9 @@
 [versions]
 kotlin = "2.3.21"
-ktor = "3.5.0"
+ktor = "3.5.2"
 koin-bom = "4.2.1"
 koin-plugin = "0.3.0"
-kotlinx-datetime = "0.7.1"
+kotlinx-datetime = "0.8.0"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization-json = "1.11.0"
 logback = "1.5.32"
@@ -13,6 +13,8 @@ turbine = "1.2.1"
 dokka = "2.2.0"
 
 [libraries]
+jidouka-common = { module = "dev.jidouka:jidouka-common" }
+
 # Ktor Client modules
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }

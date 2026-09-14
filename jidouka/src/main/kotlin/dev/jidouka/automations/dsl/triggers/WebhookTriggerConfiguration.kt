@@ -1,7 +1,7 @@
 package dev.jidouka.automations.dsl.triggers
 
 import dev.jidouka.aliases.WebhookId
-import dev.jidouka.network.models.hass.websocket.trigger.WebhookHttpMethod
+import dev.jidouka.common.network.models.hass.websocket.trigger.WebhookHttpMethod
 
 public data class WebhookTriggerConfiguration(
     val id: WebhookId,

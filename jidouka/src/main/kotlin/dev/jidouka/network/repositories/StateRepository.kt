@@ -18,7 +18,7 @@ internal class StateRepositoryRest(
     override suspend fun fetchState(entityId: EntityId): NetworkResponse<StateObject> {
         return when (val response = restClient.getState(entityId)) {
             is NetworkResponse.Success -> NetworkResponse.Success(
-                data = response.data.toStateObject(),
+                data = StateObject.from(response.data),
                 statusCode = response.statusCode
 
             )

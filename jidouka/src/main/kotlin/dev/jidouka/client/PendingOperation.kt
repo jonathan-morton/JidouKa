@@ -2,7 +2,7 @@ package dev.jidouka.client
 
 import dev.jidouka.actions.ActionResponse
 import dev.jidouka.aliases.SubscriptionId
-import dev.jidouka.network.models.hass.websocket.StateData
+import dev.jidouka.common.network.models.hass.websocket.StateData
 import kotlinx.coroutines.CompletableDeferred
 
 /**
