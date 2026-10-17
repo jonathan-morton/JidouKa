@@ -10,7 +10,6 @@ version = "0.0.1"
 kotlin {
     jvmToolchain(21)
     compilerOptions {
-        freeCompilerArgs.add("-Xexplicit-backing-fields")
         freeCompilerArgs.add("-Xname-based-destructuring=only-syntax")
     }
 }
