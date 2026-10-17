@@ -14,9 +14,6 @@ version = "0.3.0"
 
 kotlin {
     jvmToolchain(21)
-    compilerOptions {
-        freeCompilerArgs.add("-Xexplicit-backing-fields") // https://kotlinlang.org/docs/whatsnew23.html#explicit-backing-fields
-    }
     explicitApi = ExplicitApiMode.Strict
 
     // jidouka-common is compiled into this module, not depended on. Never add
