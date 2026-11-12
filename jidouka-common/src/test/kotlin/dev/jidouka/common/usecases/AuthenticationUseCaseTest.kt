@@ -1,80 +1,95 @@
 package dev.jidouka.common.usecases
 
-import dev.jidouka.common.network.JsonManager
+import dev.jidouka.common.BaseUnitTest
 import dev.jidouka.common.network.models.hass.websocket.AuthorizationMessage
-import dev.jidouka.common.network.repositories.MessageRepositoryDefault
+import dev.jidouka.common.network.repositories.MessageRepository
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.impl.annotations.MockK
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.SerializationException
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-class AuthenticationUseCaseTest {
-    private val messageRepository = MessageRepositoryDefault(JsonManager())
-    private val authenticationUseCase = AuthenticationUseCase(messageRepository)
+class AuthenticationUseCaseTest : BaseUnitTest() {
+    @MockK
+    private lateinit var messageRepository: MessageRepository
 
-    private suspend fun serialized(message: AuthorizationMessage): String =
-        messageRepository.serializeAuthorizationMessage(message)
+    private lateinit var authenticationUseCase: AuthenticationUseCase
+
+    override fun setUp() {
+        super.setUp()
+        authenticationUseCase = AuthenticationUseCase(messageRepository)
+    }
 
     @Test
     fun `authenticate succeeds on auth_ok`() = runTest {
         val sent = mutableListOf<String>()
-        val incoming = ArrayDeque(
-            listOf(
-                serialized(AuthorizationMessage.Required(haVersion = haVersion)),
-                serialized(AuthorizationMessage.Ok(haVersion = haVersion))
-            )
-        )
+        val incoming = ArrayDeque(listOf(AUTH_REQUIRED_JSON, AUTH_OK_JSON))
+        coEvery { messageRepository.parseAuthorizationMessage(AUTH_REQUIRED_JSON) } returns required
+        coEvery { messageRepository.serializeAuthorizationMessage(authorize) } returns AUTHORIZE_JSON
+        coEvery { messageRepository.parseAuthorizationMessage(AUTH_OK_JSON) } returns ok
 
         val result = authenticationUseCase.authenticate(
-            accessToken = accessToken,
+            accessToken = ACCESS_TOKEN,
             receiveMessage = { incoming.removeFirst() },
             sendMessage = { sent.add(it) }
         )
 
-        assertEquals(haVersion, result.getOrThrow())
-        assertEquals(1, sent.size)
-
-        val sentMessage = messageRepository.parseAuthorizationMessage(sent.first())
-        assertIs<AuthorizationMessage.Authorize>(sentMessage)
-        assertEquals(accessToken, sentMessage.accessToken)
+        assertEquals(HA_VERSION, result.getOrThrow())
+        assertEquals(listOf(AUTHORIZE_JSON), sent)
     }
 
     @Test
     fun `authenticate fails on auth_invalid`() = runTest {
-        val incoming = ArrayDeque(
-            listOf(
-                serialized(AuthorizationMessage.Required(haVersion = haVersion)),
-                serialized(AuthorizationMessage.Invalid(message = "Invalid password"))
-            )
-        )
+        val incoming = ArrayDeque(listOf(AUTH_REQUIRED_JSON, AUTH_INVALID_JSON))
+        coEvery { messageRepository.parseAuthorizationMessage(AUTH_REQUIRED_JSON) } returns required
+        coEvery { messageRepository.serializeAuthorizationMessage(authorize) } returns AUTHORIZE_JSON
+        coEvery { messageRepository.parseAuthorizationMessage(AUTH_INVALID_JSON) } returns invalid
 
-        val result = authenticationUseCase.authenticate(accessToken, { incoming.removeFirst() }, { })
+        val exception = authenticationUseCase.authenticate(ACCESS_TOKEN, { incoming.removeFirst() }, { })
+            .exceptionOrNull()
 
-        assertTrue(result.isFailure)
-        assertEquals(true, result.exceptionOrNull()?.message?.contains("Invalid password"))
+        assertContains(exception?.message.orEmpty(), INVALID_REASON)
     }
 
     @Test
     fun `authenticate fails when first message is not auth_required`() = runTest {
-        val incoming = ArrayDeque(listOf(serialized(AuthorizationMessage.Ok(haVersion = haVersion))))
+        coEvery { messageRepository.parseAuthorizationMessage(AUTH_OK_JSON) } returns ok
 
-        val result = authenticationUseCase.authenticate(accessToken, { incoming.removeFirst() }, { })
+        val result = authenticationUseCase.authenticate(ACCESS_TOKEN, { AUTH_OK_JSON }, { })
 
         assertTrue(result.isFailure)
+        coVerify(exactly = 0) { messageRepository.serializeAuthorizationMessage(any()) }
     }
 
     @Test
     fun `authenticate fails on malformed response`() = runTest {
-        val incoming = ArrayDeque(listOf("not valid json"))
+        val failure = SerializationException()
+        coEvery { messageRepository.parseAuthorizationMessage(AUTH_REQUIRED_JSON) } throws failure
 
-        val result = authenticationUseCase.authenticate(accessToken, { incoming.removeFirst() }, { })
+        val exception = authenticationUseCase.authenticate(ACCESS_TOKEN, { AUTH_REQUIRED_JSON }, { })
+            .exceptionOrNull()
 
-        assertTrue(result.isFailure)
+        assertSame(failure, exception)
     }
 
-    companion object {
-        private const val accessToken = "token"
-        private const val haVersion = "2026.1.0"
+    private companion object {
+        private const val ACCESS_TOKEN = "token"
+        private const val HA_VERSION = "2026.1.0"
+        private const val INVALID_REASON = "Invalid password"
+
+        private const val AUTH_REQUIRED_JSON = "auth_required"
+        private const val AUTHORIZE_JSON = "auth"
+        private const val AUTH_OK_JSON = "auth_ok"
+        private const val AUTH_INVALID_JSON = "auth_invalid"
+
+        private val required = AuthorizationMessage.Required(haVersion = HA_VERSION)
+        private val authorize = AuthorizationMessage.Authorize(accessToken = ACCESS_TOKEN)
+        private val ok = AuthorizationMessage.Ok(haVersion = HA_VERSION)
+        private val invalid = AuthorizationMessage.Invalid(message = INVALID_REASON)
     }
 }

@@ -53,7 +53,7 @@ tasks.test {
     exclude("**/BaseUnitTest.class")
 }
 
-val dokkaHtmlJar by tasks.registering(Jar::class) {
+val dokkaHtmlJar = tasks.register<Jar>("dokkaHtmlJar") {
     description = "A Javadoc JAR containing Dokka HTML"
     val htmlTask = tasks.named("dokkaGeneratePublicationHtml")
     dependsOn(htmlTask)
@@ -61,7 +61,7 @@ val dokkaHtmlJar by tasks.registering(Jar::class) {
     archiveClassifier.set("javadoc")
 }
 
-val sourcesJar by tasks.registering(Jar::class) {
+val sourcesJar = tasks.register<Jar>("sourcesJar") {
     description = "A sources JAR"
     from(sourceSets.main.get().allSource)
     archiveClassifier.set("sources")
