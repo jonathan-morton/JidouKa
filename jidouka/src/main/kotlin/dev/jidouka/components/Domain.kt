@@ -19,5 +19,6 @@ public class Domain<S : BaseState>(
         public val MediaPlayer: Domain<GenericState> = Domain("media_player")
         public val Camera: Domain<GenericState> = Domain("camera")
         public val Vacuum: Domain<GenericState> = Domain("vacuum")
+        public val Counter: Domain<GenericState> = Domain("counter")
     }
 }
