@@ -1,5 +1,6 @@
 package dev.jidouka.codegen
 
+import dev.jidouka.codegen.di.CodegenBuildService
 import dev.jidouka.codegen.tasks.GenerateEntitiesTask
 import dev.jidouka.common.configuration.HomeAssistantConfiguration
 import dev.jidouka.common.configuration.HomeAssistantEnvironmentVariables
@@ -38,6 +39,8 @@ public abstract class JidoukaCodegenPlugin : Plugin<Project> {
 
         val generatedDirectory = project.layout.buildDirectory.dir(GENERATED_SOURCES_PATH)
         val entitiesEnabled = extension.entities.enabled
+
+        project.gradle.sharedServices.registerIfAbsent(CodegenBuildService.NAME, CodegenBuildService::class.java)
 
         val generateEntities = project.tasks.register(GENERATE_ENTITIES_TASK_NAME, GenerateEntitiesTask::class.java) {
             group = TASK_GROUP
