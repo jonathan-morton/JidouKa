@@ -1,13 +1,9 @@
 package dev.jidouka.codegen.tasks
 
-import dev.jidouka.codegen.usecases.FetchEntityStatesUseCase
-import dev.jidouka.common.client.WebSocketRequestClient
+import dev.jidouka.codegen.di.CodegenBuildService
 import dev.jidouka.common.configuration.HomeAssistantConfiguration
 import dev.jidouka.common.configuration.HomeAssistantEnvironmentVariables
-import dev.jidouka.common.network.JsonManager
 import dev.jidouka.common.network.models.hass.websocket.StateData
-import dev.jidouka.common.network.repositories.MessageRepositoryDefault
-import dev.jidouka.common.usecases.AuthenticationUseCase
 import kotlinx.coroutines.runBlocking
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -15,6 +11,7 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
+import org.gradle.api.services.ServiceReference
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
@@ -47,6 +44,9 @@ public abstract class GenerateEntitiesTask : DefaultTask() {
 
     @get:Internal
     public abstract val haAccessToken: Property<String>
+
+    @get:ServiceReference(CodegenBuildService.NAME)
+    public abstract val codegenBuildService: Property<CodegenBuildService>
 
     @get:OutputDirectory
     public abstract val outputDirectory: DirectoryProperty
@@ -86,14 +86,7 @@ public abstract class GenerateEntitiesTask : DefaultTask() {
             accessToken = accessToken
         )
 
-        val messageRepository = MessageRepositoryDefault(JsonManager())
-        val fetchEntityStatesUseCase = FetchEntityStatesUseCase(
-            webSocketRequestClient = WebSocketRequestClient(
-                messageRepository,
-                AuthenticationUseCase(messageRepository)
-            ),
-            messageRepository = messageRepository
-        )
+        val fetchEntityStatesUseCase = codegenBuildService.get().fetchEntityStatesUseCase
 
         return runBlocking {
             fetchEntityStatesUseCase.fetchStates(configuration)
