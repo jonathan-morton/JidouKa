@@ -3,6 +3,7 @@ package dev.jidouka.common.usecases
 import dev.jidouka.common.network.models.hass.websocket.AuthorizationMessage
 import dev.jidouka.common.network.repositories.MessageRepository
 import org.koin.core.annotation.Single
+import kotlin.coroutines.cancellation.CancellationException
 
 @Single
 public class AuthenticationUseCase(
@@ -39,6 +40,8 @@ public class AuthenticationUseCase(
                     IllegalStateException("Unexpected response during authentication: ${response.type}")
                 )
             }
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
         } catch (exception: Exception) {
             Result.failure(exception)
         }

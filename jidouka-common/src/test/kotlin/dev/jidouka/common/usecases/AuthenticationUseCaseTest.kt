@@ -6,14 +6,21 @@ import dev.jidouka.common.network.repositories.MessageRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.impl.annotations.MockK
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.SerializationException
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AuthenticationUseCaseTest : BaseUnitTest() {
     @MockK
     private lateinit var messageRepository: MessageRepository
@@ -75,6 +82,23 @@ class AuthenticationUseCaseTest : BaseUnitTest() {
             .exceptionOrNull()
 
         assertSame(failure, exception)
+    }
+
+    @Test
+    fun `authenticate rethrows cancellation instead of returning a failure`() = runTest {
+        var result: Result<String>? = null
+        val job = launch {
+            result = authenticationUseCase.authenticate(
+                accessToken = ACCESS_TOKEN,
+                receiveMessage = { awaitCancellation() },
+                sendMessage = { }
+            )
+        }
+        runCurrent()
+
+        job.cancelAndJoin()
+
+        assertNull(result)
     }
 
     private companion object {
