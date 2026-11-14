@@ -1,10 +1,7 @@
-package dev.jidouka
+package dev.jidouka.components
 
 import app.cash.turbine.test
-import dev.jidouka.components.Domain
-import dev.jidouka.components.Entity
-import dev.jidouka.components.GenericState
-import dev.jidouka.components.StateObject
+import dev.jidouka.BaseUnitTest
 import dev.jidouka.registry.HomeAssistantStateRegistry
 import dev.jidouka.registry.StateRegistry
 import dev.jidouka.test.usecases.TestEnsureEntitySubscribedAndCurrentUseCase

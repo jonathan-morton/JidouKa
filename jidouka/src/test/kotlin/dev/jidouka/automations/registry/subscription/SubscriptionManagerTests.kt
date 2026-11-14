@@ -1,9 +1,8 @@
-package dev.jidouka.registry.subscription
+package dev.jidouka.automations.registry.subscription
 
 import dev.jidouka.BaseUnitTest
 import dev.jidouka.automations.dsl.triggers.TriggerMetadata
 import dev.jidouka.automations.registry.TriggerKey
-import dev.jidouka.automations.registry.subscription.WebSocketSubscriptionManager
 import dev.jidouka.client.ConnectionManager
 import io.mockk.coEvery
 import io.mockk.coVerify

@@ -2,7 +2,7 @@ package dev.jidouka.registry
 
 import dev.jidouka.BaseUnitTest
 import dev.jidouka.components.Domain
-import dev.jidouka.state.TestState
+import dev.jidouka.components.TestState
 import org.junit.After
 import org.junit.Before
 import kotlin.test.Test
