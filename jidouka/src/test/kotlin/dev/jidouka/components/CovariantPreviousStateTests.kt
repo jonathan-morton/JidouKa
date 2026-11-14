@@ -1,8 +1,7 @@
-package dev.jidouka.state
+package dev.jidouka.components
 
 import dev.jidouka.BaseUnitTest
 import dev.jidouka.common.network.models.hass.websocket.Context
-import dev.jidouka.components.GenericState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

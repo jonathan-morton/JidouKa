@@ -10,6 +10,7 @@ import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import kotlinx.coroutines.CancellationException
 import org.koin.core.annotation.Single
 
 internal interface RestClient {
@@ -62,6 +63,8 @@ internal class HomeAssistantRestClient(
                     error = Exception("HTTP error: ${response.status}"),
                 )
             }
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
         } catch (exception: Exception) {
             logger.error(exception) { "REST ${method.value} $path failed with exception" }
 

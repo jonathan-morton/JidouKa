@@ -7,6 +7,7 @@ import dev.jidouka.automations.dsl.triggers.TriggerMetadata
 import dev.jidouka.automations.dsl.triggers.WebhookTriggerConfiguration
 import dev.jidouka.automations.registry.TriggerKey
 import dev.jidouka.client.ConnectionManager
+import dev.jidouka.extensions.rethrowCancellation
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -229,7 +230,9 @@ internal class WebSocketSubscriptionManager(
         keys.map { key ->
             async {
                 key to websocketRequestsSemaphore.withPermit {
-                    runCatching { subscribeToClient(key) }
+                    runCatching {
+                        subscribeToClient(key)
+                    }.rethrowCancellation()
                 }
             }
         }.awaitAll()
@@ -241,7 +244,9 @@ internal class WebSocketSubscriptionManager(
         keysWithSubscriptionIds.map { (key, subscriptionId) ->
             async {
                 key to websocketRequestsSemaphore.withPermit {
-                    runCatching { unsubscribeFromClient(subscriptionId) }
+                    runCatching {
+                        unsubscribeFromClient(subscriptionId)
+                    }.rethrowCancellation()
                 }
             }
         }.awaitAll()

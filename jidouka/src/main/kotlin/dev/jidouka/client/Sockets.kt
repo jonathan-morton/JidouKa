@@ -19,6 +19,7 @@ import dev.jidouka.common.usecases.AuthenticationUseCase
 import dev.jidouka.components.StateObject
 import dev.jidouka.components.event.EventObject
 import dev.jidouka.components.webhook.WebhookObject
+import dev.jidouka.extensions.rethrowCancellation
 import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.registry.EventRegistry
 import dev.jidouka.registry.StateRegistry
@@ -29,11 +30,14 @@ import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.serialization.kotlinx.*
 import io.ktor.websocket.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -63,7 +67,7 @@ internal class HomeAssistantWebSocketClient(
     private val eventRegistry: EventRegistry,
     private val webhookRegistry: WebhookRegistry,
 ) : HomeAssistantWebSocket {
-    private var session: WebSocketSession? = null
+    internal var session: WebSocketSession? = null
 
     private var messageIdCounter = AtomicInt(1)
     private val sendMutex = Mutex()
@@ -202,10 +206,13 @@ internal class HomeAssistantWebSocketClient(
         createRequest: (messageId: Int) -> HaRequest,
     ): Int {
         return sendMutex.withLock {
+            currentCoroutineContext().ensureActive()
+
             val messageId = messageIdCounter.fetchAndAdd(1)
             createOperation?.let {
                 pendingSubscriptions[messageId] = it()
             }
+
             val request = createRequest(messageId)
             sendRequest(request)
             messageId
@@ -314,7 +321,7 @@ internal class HomeAssistantWebSocketClient(
             )
 
             deferred.await()
-        }
+        }.rethrowCancellation()
     }
 
     override suspend fun getStates(): Result<List<StateData>> {
@@ -329,7 +336,7 @@ internal class HomeAssistantWebSocketClient(
             )
 
             deferred.await()
-        }
+        }.rethrowCancellation()
     }
 
     private fun shouldLogMessage(message: MessageBase): Boolean {
@@ -368,6 +375,8 @@ internal class HomeAssistantWebSocketClient(
                     }
 
                     routeMessage(message)
+                } catch (cancellationException: CancellationException) {
+                    throw cancellationException
                 } catch (e: Exception) {
                     logger.error(e) { "Failed to parse WebSocket message" }
                 }

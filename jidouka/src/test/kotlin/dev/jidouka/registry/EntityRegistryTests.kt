@@ -6,7 +6,7 @@ import dev.jidouka.components.Domain
 import dev.jidouka.components.Entity
 import dev.jidouka.components.GenericState
 import dev.jidouka.components.StateObject
-import dev.jidouka.state.TestState
+import dev.jidouka.components.TestState
 import dev.jidouka.test.usecases.TestEnsureEntitySubscribedAndCurrentUseCase
 import dev.jidouka.usecases.EnsureEntitySubscribedAndCurrentUseCase
 import junit.framework.TestCase.assertTrue

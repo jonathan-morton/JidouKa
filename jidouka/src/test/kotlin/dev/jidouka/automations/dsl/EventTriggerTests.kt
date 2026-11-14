@@ -1,5 +1,6 @@
-package dev.jidouka
+package dev.jidouka.automations.dsl
 
+import dev.jidouka.BaseUnitTest
 import dev.jidouka.api.Jidouka
 import dev.jidouka.automations.AutomationMode
 import dev.jidouka.test.AutomationTestEnvironment
