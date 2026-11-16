@@ -4,6 +4,7 @@ import dev.jidouka.codegen.di.CodegenBuildService
 import dev.jidouka.common.configuration.HomeAssistantConfiguration
 import dev.jidouka.common.configuration.HomeAssistantEnvironmentVariables
 import dev.jidouka.common.network.models.hass.websocket.StateData
+import dev.jidouka.common.usecases.exceptions.AuthenticationFailedException
 import kotlinx.coroutines.runBlocking
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -41,6 +42,9 @@ public abstract class GenerateEntitiesTask : DefaultTask() {
 
     @get:Internal
     public abstract val haPort: Property<Int>
+
+    @get:Internal
+    public abstract val haSecure: Property<Boolean>
 
     @get:Internal
     public abstract val haAccessToken: Property<String>
@@ -83,7 +87,8 @@ public abstract class GenerateEntitiesTask : DefaultTask() {
         val configuration = HomeAssistantConfiguration(
             host = haHost.get(),
             port = haPort.get(),
-            accessToken = accessToken
+            accessToken = accessToken,
+            isSecure = haSecure.get(),
         )
 
         val fetchEntityStatesUseCase = codegenBuildService.get().fetchEntityStatesUseCase
@@ -91,9 +96,14 @@ public abstract class GenerateEntitiesTask : DefaultTask() {
         return runBlocking {
             fetchEntityStatesUseCase.fetchStates(configuration)
         }.getOrElse { exception ->
+            val reason = exception.message ?: exception::class.simpleName
             throw GradleException(
-                "Fetching entity states from ${configuration.host}:${configuration.port} failed: " +
-                        (exception.message ?: exception::class.simpleName),
+                when (exception) {
+                    is AuthenticationFailedException ->
+                        "$reason. Check ${HomeAssistantEnvironmentVariables.ACCESS_TOKEN}"
+
+                    else -> "Fetching entity states failed: $reason\n${configuration.connectionFailedHint}"
+                },
                 exception
             )
         }

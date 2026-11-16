@@ -11,6 +11,7 @@ public abstract class JidoukaCodegenExtension {
 
     public abstract val haHost: Property<String>
     public abstract val haPort: Property<Int>
+    public abstract val haSecure: Property<Boolean>
     public abstract val haAccessToken: Property<String>
 
     @get:Nested

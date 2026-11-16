@@ -30,6 +30,15 @@ public abstract class JidoukaCodegenPlugin : Plugin<Project> {
                 .orElse(HomeAssistantConfiguration.DEFAULT_PORT)
         )
 
+        extension.haSecure.convention(
+            project.providers.environmentVariable(HomeAssistantEnvironmentVariables.SECURE)
+                .map {
+                    it.toBooleanStrictOrNull()
+                        ?: throw GradleException("${HomeAssistantEnvironmentVariables.SECURE} must be true or false, got '$it'")
+                }
+                .orElse(HomeAssistantConfiguration.DEFAULT_IS_SECURE)
+        )
+
         extension.haAccessToken.convention(
             project.providers.environmentVariable(HomeAssistantEnvironmentVariables.ACCESS_TOKEN)
         )
@@ -53,6 +62,7 @@ public abstract class JidoukaCodegenPlugin : Plugin<Project> {
 
             haHost.set(extension.haHost)
             haPort.set(extension.haPort)
+            haSecure.set(extension.haSecure)
             haAccessToken.set(extension.haAccessToken)
 
             outputDirectory.set(generatedDirectory)

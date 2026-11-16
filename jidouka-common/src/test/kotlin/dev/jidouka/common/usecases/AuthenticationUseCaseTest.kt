@@ -3,6 +3,7 @@ package dev.jidouka.common.usecases
 import dev.jidouka.common.BaseUnitTest
 import dev.jidouka.common.network.models.hass.websocket.AuthorizationMessage
 import dev.jidouka.common.network.repositories.MessageRepository
+import dev.jidouka.common.usecases.exceptions.AuthenticationFailedException
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.impl.annotations.MockK
@@ -16,6 +17,7 @@ import kotlinx.serialization.SerializationException
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -60,7 +62,8 @@ class AuthenticationUseCaseTest : BaseUnitTest() {
         val exception = authenticationUseCase.authenticate(ACCESS_TOKEN, { incoming.removeFirst() }, { })
             .exceptionOrNull()
 
-        assertContains(exception?.message.orEmpty(), INVALID_REASON)
+        assertIs<AuthenticationFailedException>(exception)
+        assertContains(exception.message.orEmpty(), INVALID_REASON)
     }
 
     @Test

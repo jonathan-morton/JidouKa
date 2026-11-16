@@ -79,6 +79,44 @@ this case we use delay to wait 2 minutes. We then log to the console hello world
 
 Finally, we start the JidouKa application with the `JidoukaApplication` returned from the initialize function.
 
+## Connecting to Home Assistant
+
+`HomeAssistantConfiguration` needs the address of your Home Assistant server. Use the same host you open Home
+Assistant with in a browser, and the port from [Which port](#which-port) below.
+
+| Setting       | Default               | Environment variable |
+|---------------|-----------------------|----------------------|
+| `host`        | `homeassistant.local` | `HA_HOST`            |
+| `port`        | `8123`                | `HA_PORT`            |
+| `isSecure`    | `false`               | `HA_SECURE`          |
+| `accessToken` | none, required        | `HA_ACCESS_TOKEN`    |
+
+The environment variables are read by the code generation plugin. In your own application,
+read them yourself (see the example) or set the values directly.
+
+`host` is only the host name or IP address, such as `homeassistant.local` or `192.168.1.20`. Leave out `http://` or
+`https://`, the port and any path. Put an IPv6 address in brackets, such as `[fe80::1]`.
+
+### Which port?
+
+Home Assistant shows its port under **Settings > System > Network > HTTP server**, in the **Server port** field. You
+need an administrator account to see this section. If you haven't changed it, the port depends on how you installed
+Home Assistant:
+
+| Your installation                                 | Default port |
+|---------------------------------------------------|--------------|
+| Home Assistant OS, installed with 2026.8 or later | `80`         |
+| Home Assistant OS, installed before 2026.8        | `8123`       |
+| Home Assistant Container                          | `8123`       |
+
+If you connect through a reverse proxy, use the proxy's port instead, usually `443` for `https://`.
+
+### HTTPS
+
+Set `isSecure = true` (or `HA_SECURE=true`) if SSL/TLS is set up in the same **HTTP server** section, or if you connect
+through an `https` reverse proxy or remote-access URL. JidouKa then connects with `https` and `wss`. The port doesn't
+change: with SSL/TLS set up in Home Assistant it stays the **Server port**, such as `8123`.
+
 ## Installation
 
 ```kotlin
@@ -144,7 +182,10 @@ should be added to your .gitignore
 
 ```
 HA_HOST=homeassistant.local
+# The port Home Assistant listens on (Settings > System > Network > HTTP server).
 HA_PORT=8123
+# true if SSL/TLS is set up in Home Assistant, or you connect through an https reverse proxy
+HA_SECURE=false
 HA_ACCESS_TOKEN=your_long_lived_access_token_here
 ```
 

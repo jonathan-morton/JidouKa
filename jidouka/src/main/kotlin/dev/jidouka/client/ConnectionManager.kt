@@ -6,6 +6,7 @@ import dev.jidouka.aliases.SubscriptionId
 import dev.jidouka.aliases.WebhookId
 import dev.jidouka.common.configuration.HomeAssistantConfiguration
 import dev.jidouka.common.network.models.hass.websocket.trigger.WebhookHttpMethod
+import dev.jidouka.common.usecases.exceptions.AuthenticationFailedException
 import dev.jidouka.components.StateObject
 import dev.jidouka.network.NetworkResponse
 import dev.jidouka.registry.StateRegistry
@@ -101,6 +102,7 @@ internal class HomeAssistantConnectionManager(
     private suspend fun connectWithRetry() {
         var connectionAttempt = 0
         var needsRestore = false
+        var hasAuthenticated = false
 
         while (true) {
             if (needsRestore && connectionAttempt > 0) {
@@ -112,10 +114,11 @@ internal class HomeAssistantConnectionManager(
                 webSocketClient.connectToWebSocket(
                     client = httpClient,
                     configuration = configuration,
-                    onConnected = if (needsRestore) {
-                        { restoreAfterReconnect() }
-                    } else {
-                        null
+                    onConnected = {
+                        hasAuthenticated = true
+                        if (needsRestore) {
+                            restoreAfterReconnect()
+                        }
                     }
                 )
                 logger.warn { "WebSocket connection ended, will reconnect..." }
@@ -131,9 +134,12 @@ internal class HomeAssistantConnectionManager(
 
                 val backoffDelay = calculateBackoffDelay(connectionAttempt)
 
-
                 logger.warn(exception) {
                     "Connection failed (attempt $connectionAttempt), retrying in $backoffDelay"
+                }
+
+                if (hasAuthenticated.not() && exception !is AuthenticationFailedException) {
+                    logger.warn { configuration.connectionFailedHint }
                 }
 
                 delay(backoffDelay)

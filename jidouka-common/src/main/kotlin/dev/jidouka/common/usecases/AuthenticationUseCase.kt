@@ -2,6 +2,7 @@ package dev.jidouka.common.usecases
 
 import dev.jidouka.common.network.models.hass.websocket.AuthorizationMessage
 import dev.jidouka.common.network.repositories.MessageRepository
+import dev.jidouka.common.usecases.exceptions.AuthenticationFailedException
 import org.koin.core.annotation.Single
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -32,7 +33,7 @@ public class AuthenticationUseCase(
             when (response) {
                 is AuthorizationMessage.Ok -> Result.success(response.haVersion)
                 is AuthorizationMessage.Invalid -> Result.failure(
-                    Exception("Authentication failed: ${response.message}")
+                    AuthenticationFailedException("Authentication failed: ${response.message}")
                 )
 
                 is AuthorizationMessage.Authorize,

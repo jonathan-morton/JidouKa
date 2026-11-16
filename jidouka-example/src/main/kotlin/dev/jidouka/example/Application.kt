@@ -15,15 +15,18 @@ fun main() = runBlocking {
     logger.info { "Starting Jidouka Example Application" }
 
     // Load configuration from environment variables
-    val haHost = System.getenv(HomeAssistantEnvironmentVariables.HOST) ?: run {
-        logger.warn { "${HomeAssistantEnvironmentVariables.HOST} not set, using default" }
-        HomeAssistantConfiguration.DEFAULT_HOST
-    }
+    val haHost = System.getenv(HomeAssistantEnvironmentVariables.HOST)
+        ?: HomeAssistantConfiguration.DEFAULT_HOST
 
-    val haPort = System.getenv(HomeAssistantEnvironmentVariables.PORT)?.toIntOrNull() ?: run {
-        logger.warn { "${HomeAssistantEnvironmentVariables.PORT} not set or invalid, using default" }
-        HomeAssistantConfiguration.DEFAULT_PORT
-    }
+    val haPort = System.getenv(HomeAssistantEnvironmentVariables.PORT)?.let { value ->
+        value.toIntOrNull()
+            ?: throw IllegalStateException("${HomeAssistantEnvironmentVariables.PORT} must be a number, got '$value'")
+    } ?: HomeAssistantConfiguration.DEFAULT_PORT
+
+    val haSecure = System.getenv(HomeAssistantEnvironmentVariables.SECURE)?.let { value ->
+        value.toBooleanStrictOrNull()
+            ?: throw IllegalStateException("${HomeAssistantEnvironmentVariables.SECURE} must be true or false, got '$value'")
+    } ?: HomeAssistantConfiguration.DEFAULT_IS_SECURE
 
     val haAccessToken = System.getenv(HomeAssistantEnvironmentVariables.ACCESS_TOKEN) ?: run {
         logger.error { "${HomeAssistantEnvironmentVariables.ACCESS_TOKEN} environment variable is required!" }
@@ -32,13 +35,14 @@ fun main() = runBlocking {
         throw IllegalStateException("${HomeAssistantEnvironmentVariables.ACCESS_TOKEN} environment variable is required")
     }
 
-    logger.info { "Connecting to Home Assistant at $haHost:$haPort" }
+    logger.info { "Connecting to Home Assistant at $haHost:$haPort (secure: $haSecure)" }
 
     val app = Jidouka.initialize {
         haConfiguration = HomeAssistantConfiguration(
             host = haHost,
             port = haPort,
-            accessToken = haAccessToken
+            accessToken = haAccessToken,
+            isSecure = haSecure
         )
         jidoukaConfiguration = JidoukaConfiguration(
             logging = JidoukaConfiguration.Logging(logLevel = JidoukaConfiguration.Logging.LogLevel.Debug)
