@@ -85,9 +85,7 @@ internal class HomeAssistantWebSocketClient(
         onConnected: (suspend () -> Unit)? = null
     ) {
         client.webSocket(
-            host = configuration.host,
-            port = configuration.port,
-            path = configuration.websocketPath
+            urlString = configuration.websocketUrl
         ) {
             session = this
 

@@ -29,9 +29,7 @@ public class WebSocketRequestClient(
             var result: JsonElement? = null
 
             client.webSocket(
-                host = configuration.host,
-                port = configuration.port,
-                path = configuration.websocketPath
+                urlString = configuration.websocketUrl
             ) {
                 suspend fun receiveTextFrame(): String {
                     for (frame in incoming) {
