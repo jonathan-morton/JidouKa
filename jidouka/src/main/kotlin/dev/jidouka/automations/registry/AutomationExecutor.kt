@@ -4,29 +4,24 @@ import dev.jidouka.automations.AutomationContext
 import dev.jidouka.automations.AutomationMode
 import dev.jidouka.automations.dsl.triggers.TriggerContext
 import dev.jidouka.automations.registry.subscription.AutomationId
-import dev.jidouka.extensions.isTrue
 import dev.jidouka.test.RecordedEvent
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.consumeAsFlow
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.core.annotation.Single
 import java.util.concurrent.ConcurrentHashMap
 
-@OptIn(ExperimentalCoroutinesApi::class)
 @Single
 internal class AutomationExecutor(
     private val executionScope: CoroutineScope, //Should have a SupervisorJob
     private val eventRecorder: ((RecordedEvent) -> Unit)? = null
 ) {
-    private val runningJobs = ConcurrentHashMap<AutomationId, MutableList<Job>>()
+    /**
+     * Supervisor parent of the jobs running each automation's actions: action launches and the queue consumer.
+     * Trigger collection is in [collectorJobs].
+     */
+    private val runningJobs = ConcurrentHashMap<AutomationId, Job>()
     private val collectorJobs = ConcurrentHashMap<AutomationId, Job>()
     private val actionQueues = ConcurrentHashMap<AutomationId, Channel<TriggerContext>>()
 
@@ -39,6 +34,26 @@ internal class AutomationExecutor(
         if (exception !is CancellationException) {
             logger.error(exception) { "Automation '$automationId' error in $operation" }
         }
+    }
+
+    private fun getParentJob(automationId: AutomationId): Job {
+        return runningJobs.computeIfAbsent(automationId) {
+            SupervisorJob(executionScope.coroutineContext.job)
+        }
+    }
+
+    private fun activeActionJobs(automationId: AutomationId): Sequence<Job> {
+        return runningJobs[automationId]?.children?.filter { it.isActive }
+            ?: emptySequence()
+    }
+
+    private fun cancelActionJobs(
+        automationId: AutomationId,
+        cause: CancellationException? = null
+    ): Int {
+        val cancelledCount = activeActionJobs(automationId).count()
+        runningJobs[automationId]?.cancelChildren(cause)
+        return cancelledCount
     }
 
     fun execute(
@@ -121,10 +136,8 @@ internal class AutomationExecutor(
     }
 
     private fun runSingle(registeredAutomation: RegisteredAutomation, triggerContext: TriggerContext) {
-        val jobs = runningJobs[registeredAutomation.id]
-
-        val hasRunningJobs = jobs?.any { it.isActive } == true
-        if (hasRunningJobs) {
+        val hasActiveActionJobs = activeActionJobs(registeredAutomation.id).any()
+        if (hasActiveActionJobs) {
             logger.warn { "Automation '${registeredAutomation.id}' already running in Single mode, skipping trigger" }
             return
         }
@@ -136,31 +149,21 @@ internal class AutomationExecutor(
     }
 
     private fun runRestart(registeredAutomation: RegisteredAutomation, triggerContext: TriggerContext) {
-        val jobs = runningJobs[registeredAutomation.id]
-
-        val cancelledCount = jobs?.count { job ->
-            if (job.isActive) {
-                job.cancel(CancellationException("Restarted by new trigger"))
-                true
-            } else false
-        } ?: 0
+        val cancelledCount = cancelActionJobs(
+            automationId = registeredAutomation.id,
+            cause = CancellationException("Restarted by new trigger")
+        )
 
         if (cancelledCount > 0) {
             logger.info { "Automation '${registeredAutomation.id}' restarting, cancelled $cancelledCount running job(s)" }
         }
 
-        jobs?.clear()
-
         launchAction(registeredAutomation, triggerContext)
     }
 
     private fun runParallel(registeredAutomation: RegisteredAutomation, maxJobs: Int, triggerContext: TriggerContext) {
-        val jobs = runningJobs.computeIfAbsent(registeredAutomation.id) {
-            mutableListOf()
-        }
-        jobs.removeIf { it.isActive.not() }
+        val activeCount = activeActionJobs(registeredAutomation.id).count()
 
-        val activeCount = jobs.count { it.isActive }
         if (activeCount >= maxJobs) {
             logger.warn { "Automation '${registeredAutomation.id}' parallel limit reached ($activeCount/$maxJobs), skipping trigger" }
             return
@@ -198,22 +201,18 @@ internal class AutomationExecutor(
         registeredAutomation: RegisteredAutomation,
         channel: Channel<TriggerContext>
     ) {
+        val context =
+            getParentJob(registeredAutomation.id) + createExceptionHandler(registeredAutomation.id, "Queue Consumer")
         val consumerJob = executionScope.launch(
-            createExceptionHandler(registeredAutomation.id, "Queue Consumer")
+            context = context
         ) {
-            channel.consumeAsFlow().collect { context ->
-                runActionsRecorded(registeredAutomation, context)
+            channel.consumeAsFlow().collect { triggerContext ->
+                runActionsRecorded(registeredAutomation, triggerContext)
             }
         }
 
-        runningJobs.computeIfAbsent(registeredAutomation.id) {
-            mutableListOf()
-        }.add(consumerJob)
-
         consumerJob.invokeOnCompletion { throwable ->
-            actionQueues.remove(registeredAutomation.id)
-            runningJobs[registeredAutomation.id]?.remove(consumerJob)
-
+            actionQueues.remove(registeredAutomation.id, channel)
             eventRecorder ?: return@invokeOnCompletion
             throwable?.let {
                 if (throwable !is CancellationException) {
@@ -224,22 +223,7 @@ internal class AutomationExecutor(
     }
 
     fun cancel(automationId: AutomationId): Boolean {
-        val cancelledActionCount = runningJobs[automationId]?.count { job ->
-            if (job.isActive) {
-                job.cancel()
-                true
-            } else false
-        } ?: 0
-
-        runningJobs.remove(automationId)
-
-        runningJobs[automationId]?.removeIf { job ->
-            job.isActive.not()
-        }
-
-        if (runningJobs[automationId]?.isEmpty().isTrue()) {
-            runningJobs.remove(automationId)
-        }
+        val cancelledActionCount = cancelActionJobs(automationId)
 
         actionQueues.remove(automationId)?.close()
 
@@ -262,19 +246,12 @@ internal class AutomationExecutor(
 
     private fun launchAction(registeredAutomation: RegisteredAutomation, triggerContext: TriggerContext) {
         logger.debug { "Launching action for automation '${registeredAutomation.id}' (mode: ${registeredAutomation.mode})" }
-
-        val job = executionScope.launch(
-            createExceptionHandler(registeredAutomation.id, "Running Action")
+        val context =
+            getParentJob(registeredAutomation.id) + createExceptionHandler(registeredAutomation.id, "Queue Consumer")
+        executionScope.launch(
+            context = context
         ) {
             runActionsRecorded(registeredAutomation, triggerContext)
-        }
-
-        runningJobs.computeIfAbsent(registeredAutomation.id) {
-            mutableListOf()
-        }.add(job)
-
-        job.invokeOnCompletion {
-            runningJobs[registeredAutomation.id]?.remove(job)
         }
     }
 
@@ -312,8 +289,7 @@ internal class AutomationExecutor(
      * @return true if any jobs are active
      */
     fun isRunning(automationId: AutomationId): Boolean {
-        val jobs = runningJobs[automationId]
-        return jobs?.any { it.isActive } == true
+        return activeActionJobs(automationId).any()
     }
 
     /**
@@ -323,8 +299,6 @@ internal class AutomationExecutor(
      * @param automationId The automation to wait for
      */
     suspend fun await(automationId: AutomationId) {
-        runningJobs[automationId]?.joinAll()
+        runningJobs[automationId]?.children?.toList()?.joinAll()
     }
-
-
 }
