@@ -4,6 +4,7 @@ import dev.jidouka.common.network.models.hass.websocket.Context
 import kotlin.time.Instant
 
 class TestState(
+    entityId: String = "$TEST_DOMAIN.entity",
     stateRaw: String,
     attributesRaw: Map<String, Any?> = emptyMap(),
     lastChanged: Instant = Instant.fromEpochMilliseconds(0),
@@ -12,6 +13,7 @@ class TestState(
     context: Context? = null,
     previous: TestState? = null
 ) : GenericState(
+    entityId = entityId,
     stateRaw = stateRaw,
     attributesRaw = attributesRaw,
     lastChanged = lastChanged,
@@ -32,6 +34,7 @@ class TestState(
                 }
 
                 return TestState(
+                    entityId = stateObject.entityId,
                     stateRaw = stateObject.state,
                     attributesRaw = stateObject.attributesRaw,
                     lastChanged = stateObject.lastChanged,

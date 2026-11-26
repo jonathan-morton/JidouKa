@@ -388,7 +388,7 @@ class WebhookTriggerTests : BaseUnitTest() {
             }
             conditions {
                 condition {
-                    entity(personEntityId).state()?.state == "home"
+                    entity(personEntityId).state()?.stateRaw == "home"
                 }
             }
             actions {

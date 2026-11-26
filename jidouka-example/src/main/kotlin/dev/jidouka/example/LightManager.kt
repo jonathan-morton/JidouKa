@@ -134,7 +134,7 @@ object LightManager {
      */
     suspend fun isOn(entity: Entity<*>): Boolean {
         return entity.state()?.let { state ->
-            (state as? GenericState)?.state == LightState.ON.state
+            (state as? GenericState)?.stateRaw == LightState.ON.state
         } ?: false
     }
 

@@ -15,12 +15,12 @@ import dev.jidouka.common.network.models.hass.websocket.StateData
 import dev.jidouka.common.network.models.hass.websocket.TriggerConfiguration
 import dev.jidouka.common.network.models.hass.websocket.trigger.WebhookHttpMethod
 import dev.jidouka.common.network.repositories.MessageRepository
+import dev.jidouka.common.network.utils.toNativeMap
 import dev.jidouka.common.usecases.AuthenticationUseCase
 import dev.jidouka.components.StateObject
 import dev.jidouka.components.event.EventObject
 import dev.jidouka.components.webhook.WebhookObject
 import dev.jidouka.extensions.rethrowCancellation
-import dev.jidouka.network.utils.toNativeMap
 import dev.jidouka.registry.EventRegistry
 import dev.jidouka.registry.StateRegistry
 import dev.jidouka.registry.WebhookRegistry

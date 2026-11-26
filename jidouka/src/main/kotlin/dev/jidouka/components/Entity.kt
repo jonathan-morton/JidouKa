@@ -1,10 +1,12 @@
 package dev.jidouka.components
 
+import dev.jidouka.aliases.EntityId
 import dev.jidouka.automations.AutomationContext
 import dev.jidouka.automations.registry.subscription.SubscriptionManager
+import dev.jidouka.common.network.models.hass.PlaceholderState
 import dev.jidouka.common.network.models.hass.websocket.Context
 import dev.jidouka.common.network.models.hass.websocket.StateData
-import dev.jidouka.network.utils.toNativeMap
+import dev.jidouka.common.network.utils.toNativeMap
 import dev.jidouka.registry.StateRegistry
 import dev.jidouka.usecases.EnsureEntitySubscribedAndCurrentUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -92,13 +94,15 @@ internal interface State {
 public abstract class BaseState : State {
     public abstract override val previous: BaseState?
 
+    public abstract val entityId: EntityId
+
     public abstract val stateRaw: String
 
     public abstract val attributesRaw: Map<String, Any?>
 
-    @Deprecated("use attributesRaw", replaceWith = ReplaceWith("attributesRaw"))
-    public val rawAttributes: Map<String, Any?>
-        get() = attributesRaw
+    /** This state's attributes. Generated state classes override it with their domain's or entity's attributes class. */
+    public open val attributes: EntityAttributes
+        get() = EntityAttributes(entityId, attributesRaw)
 
     public abstract val lastChanged: Instant?
     public abstract val lastUpdated: Instant?
@@ -128,33 +132,26 @@ public data class StateObject(
     val lastReported: Instant?,
     val context: Context?,
 ) {
-    @Deprecated("use attributesRaw", replaceWith = ReplaceWith("attributesRaw"))
-    val rawAttributes: Map<String, Any?>
-        get() = attributesRaw
 
     private val logger = KotlinLogging.logger {}
 
     /**
-     * Check if this state represents an unavailable or unknown entity.
-     * Home Assistant uses "unavailable" when entities are offline/disconnected,
-     * and "unknown" when the state cannot be determined.
+     * Checks whether this state is a [PlaceholderState], and logs which one.
      *
-     * Parsers should return null for these states without logging,
-     * as they represent expected conditions, not parsing failures.
+     * Home Assistant uses [PlaceholderState.Unavailable] when an entity is offline or disconnected, and
+     * [PlaceholderState.Unknown] when its state can't be determined. Parsers should return null for these
+     * states without logging, as they're expected conditions, not parsing failures.
+     *
+     * @return True if [state] is a placeholder
      */
     public fun isUnavailable(): Boolean {
-        when {
-            state.equals("unavailable", ignoreCase = true) -> {
-                logger.info { "$entityId is unavailable" }
-                return true
-            }
-
-            state.equals("unknown", ignoreCase = true) -> {
-                logger.info { "$entityId has unknown state" }
-                return true
-            }
+        when (PlaceholderState.of(state)) {
+            PlaceholderState.Unavailable -> logger.info { "$entityId is unavailable" }
+            PlaceholderState.Unknown -> logger.info { "$entityId has unknown state" }
+            null -> return false
         }
-        return false
+
+        return true
     }
 
     internal companion object {

@@ -5,7 +5,7 @@ import dev.jidouka.actions.ActionsManager
 import dev.jidouka.automations.AutomationContext
 import dev.jidouka.common.network.JsonManager
 import dev.jidouka.common.network.models.hass.websocket.ActionTarget
-import dev.jidouka.network.utils.toNativeMap
+import dev.jidouka.common.network.utils.toNativeMap
 import dev.jidouka.test.RecordedEvent
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.currentCoroutineContext

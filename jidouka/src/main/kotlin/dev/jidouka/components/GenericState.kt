@@ -1,5 +1,6 @@
 package dev.jidouka.components
 
+import dev.jidouka.aliases.EntityId
 import dev.jidouka.common.network.models.hass.websocket.Context
 import kotlin.time.Instant
 
@@ -7,6 +8,7 @@ import kotlin.time.Instant
  * Generic state implementation that can represent any Home Assistant entity state.
  */
 public open class GenericState(
+    override val entityId: EntityId,
     override val stateRaw: String,
     override val attributesRaw: Map<String, Any?>,
     override val lastChanged: Instant,
@@ -15,9 +17,6 @@ public open class GenericState(
     override val context: Context?,
     override val previous: BaseState? = null,
 ) : BaseState() {
-    @Deprecated("use stateRaw", replaceWith = ReplaceWith("stateRaw"))
-    public val state: String
-        get() = stateRaw
 
     public companion object {
         public val parser: Parser<GenericState> = object : Parser<GenericState> {
@@ -27,6 +26,7 @@ public open class GenericState(
                 }
 
                 return GenericState(
+                    entityId = stateObject.entityId,
                     stateRaw = stateObject.state,
                     attributesRaw = stateObject.attributesRaw,
                     lastChanged = stateObject.lastChanged,

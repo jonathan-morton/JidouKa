@@ -1,7 +1,5 @@
-package dev.jidouka.network.utils
+package dev.jidouka.common.network.utils
 
-import dev.jidouka.common.network.utils.JsonPrimitiveKind
-import dev.jidouka.common.network.utils.classifyKind
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -21,7 +19,7 @@ import kotlinx.serialization.json.long
  *
  * @return Map<String, Any?> where values are native Kotlin types (String, Number, Boolean, List, Map, null)
  */
-internal fun JsonObject.toNativeMap(): Map<String, Any?> {
+public fun JsonObject.toNativeMap(): Map<String, Any?> {
     return this.mapValues { (_, value) ->
         value.toNativeValue()
     }
@@ -37,7 +35,7 @@ internal fun JsonObject.toNativeMap(): Map<String, Any?> {
  *
  * @return The native Kotlin representation of the JsonElement
  */
-internal fun JsonElement.toNativeValue(): Any? {
+public fun JsonElement.toNativeValue(): Any? {
     return when (this) {
         is JsonArray -> this.map { it.toNativeValue() }
         is JsonObject -> this.toNativeMap()

@@ -1,4 +1,4 @@
-package dev.jidouka.network.utils
+package dev.jidouka.common.network.utils
 
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive

@@ -21,6 +21,7 @@ class CovariantPreviousStateTests : BaseUnitTest() {
 }
 
 private class TestLightState(
+    entityId: String = "light.test",
     stateRaw: String,
     attributesRaw: Map<String, Any?> = emptyMap(),
     lastChanged: Instant = Instant.fromEpochMilliseconds(0),
@@ -29,6 +30,7 @@ private class TestLightState(
     context: Context? = null,
     previous: TestLightState? = null
 ) : GenericState(
+    entityId = entityId,
     stateRaw = stateRaw,
     attributesRaw = attributesRaw,
     lastChanged = lastChanged,
