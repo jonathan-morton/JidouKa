@@ -11,11 +11,13 @@ import dev.jidouka.components.StateTransition
 import dev.jidouka.components.event.BaseEvent
 import dev.jidouka.components.event.EventType
 import dev.jidouka.components.event.GenericEvent
+import dev.jidouka.registry.EntityRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Instant
 
 public class TriggeredScope internal constructor(
-    private val context: TriggerContext
+    private val context: TriggerContext,
+    private val entityRegistry: EntityRegistry,
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -99,27 +101,25 @@ public class TriggeredScope internal constructor(
     )
 
     /**
-     * Returns a generic state if the automation was triggered by a **SINGLE** state
-     * If the automation was triggered by combined states this function will return null. Multiple states should be retrieved with
-     * the type safe `state(entity: Entity<S>)` function
+     * Returns the state if the automation was triggered by a **SINGLE** state change, otherwise null.
+     *
+     * Parsed the same way as `state(entity)`, so a registered type comes back as that type. Using the result throws
+     * [ClassCastException] if that type doesn't extend [GenericState].
      */
     public fun state(): StateTriggerResult<GenericState>? {
         val transition = resolveSingleStateTransition(context) ?: return null
 
-        val previousState = transition.fromState?.let {
-            GenericState.parser.parse(stateObject = it, previous = null)
-        }
-
-        val state = GenericState.parser.parse(transition.toState, previousState) ?: return null
-
-        return StateTriggerResult(
-            entityId = transition.toState.entityId,
-            state = state,
-            previousState = previousState
-
-        )
+        val transitionEntity = entityRegistry.get(transition.toState.entityId)
+        return state(transitionEntity)
     }
 
+    /**
+     * Returns the state if the automation was triggered by a **SINGLE** state change of an entity in [domain],
+     * otherwise null.
+     *
+     * Parsed the same way as `state(entity)`. Using the result throws [ClassCastException] if [S] doesn't match the
+     * parser the entity was created with.
+     */
     public fun <S : BaseState> state(domain: Domain<S>): StateTriggerResult<S>? {
         val transition = resolveSingleStateTransition(context) ?: return null
         val entityId = transition.toState.entityId
@@ -128,20 +128,17 @@ public class TriggeredScope internal constructor(
             return null
         }
 
-        val previousState = transition.fromState?.let {
-            domain.entityParser?.parse(stateObject = it, previous = null)
-        }
-
-        val state = domain.entityParser?.parse(transition.toState, previousState) ?: return null
-
-        return StateTriggerResult(
-            entityId = entityId,
-            state = state,
-            previousState = previousState
-
-        )
+        val transitionEntity = entityRegistry.get(entityId, domain)
+        return state(transitionEntity)
     }
 
+    /**
+     * Returns the state of [entity] if it is part of the state trigger, otherwise null. Also null when the new state is
+     * unavailable or unknown.
+     *
+     * Works for single and combined states triggers. For a combined trigger it returns the entity's current transition,
+     * whether or not this entity is the one that changed.
+     */
     public fun <S : BaseState> state(entity: Entity<S>): StateTriggerResult<S>? {
         val transition = resolveStateTransition(entity) ?: return null
 
@@ -153,6 +150,19 @@ public class TriggeredScope internal constructor(
             state = state,
             previousState = previousState
         )
+    }
+
+    /**
+     * Returns the state of whichever entity in [entities] fired, if the automation was triggered by a **SINGLE** state
+     * change, otherwise null. Pairs with the `state(entities) { … }` trigger.
+     */
+    public fun <S : BaseState> state(entities: List<Entity<S>>): StateTriggerResult<S>? {
+        val transition = resolveSingleStateTransition(context) ?: return null
+        val triggeredEntity = entities.firstOrNull { entity ->
+            entity.entityId == transition.toState.entityId
+        } ?: return null
+
+        return state(triggeredEntity)
     }
 
     //endregion
