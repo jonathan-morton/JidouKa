@@ -3,6 +3,7 @@ package dev.jidouka.automations.dsl
 import dev.jidouka.BaseUnitTest
 import dev.jidouka.api.Jidouka
 import dev.jidouka.automations.AutomationMode
+import dev.jidouka.common.network.models.hass.EntityStateAttribute
 import dev.jidouka.test.AutomationTestEnvironment
 import dev.jidouka.test.RecordedEvent
 import junit.framework.TestCase.assertTrue
@@ -28,7 +29,7 @@ class EventTriggerTests : BaseUnitTest() {
             "attributes" to mapOf(
                 "event_types" to listOf("single", "double", "long"),
                 "event_type" to eventType,
-                "friendly_name" to "Room Button 01 Action"
+                EntityStateAttribute.FriendlyName.haValue to "Room Button 01 Action"
             )
         ),
         "old_state" to mapOf(
@@ -37,7 +38,7 @@ class EventTriggerTests : BaseUnitTest() {
             "attributes" to mapOf(
                 "event_types" to listOf("single", "double", "long"),
                 "event_type" to eventType,
-                "friendly_name" to "Room Button 01 Action"
+                EntityStateAttribute.FriendlyName.haValue to "Room Button 01 Action"
             )
         )
     )
@@ -219,7 +220,7 @@ class EventTriggerTests : BaseUnitTest() {
             }
             conditions {
                 condition {
-                    entity(personEntityId).state()?.state == "home"
+                    entity(personEntityId).state()?.stateRaw == "home"
                 }
             }
             actions {

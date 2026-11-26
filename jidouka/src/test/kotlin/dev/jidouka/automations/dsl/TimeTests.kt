@@ -234,7 +234,7 @@ class TimeTests : BaseUnitTest() {
         ) {
             triggers {
                 time.at(entity = entity(sunEntityId), fireImmediately = true) { state ->
-                    state?.state?.let { Instant.parse(it) }
+                    state?.stateRaw?.let { Instant.parse(it) }
                 }
             }
             actions {
@@ -272,7 +272,7 @@ class TimeTests : BaseUnitTest() {
         ) {
             triggers {
                 time.at(entity = entity(sunEntityId), fireImmediately = true) { state ->
-                    state?.state?.let { Instant.parse(it) }
+                    state?.stateRaw?.let { Instant.parse(it) }
                 }
             }
             actions {
@@ -309,7 +309,7 @@ class TimeTests : BaseUnitTest() {
         ) {
             triggers {
                 time.at(entity = entity(sunEntityId), fireImmediately = true) { state ->
-                    state?.state?.let { Instant.parse(it) }
+                    state?.stateRaw?.let { Instant.parse(it) }
                 }
             }
             actions {
@@ -489,7 +489,7 @@ class TimeTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(motionId)) { it?.state == "on" }
+                state(entity = entity(motionId)) { it?.stateRaw == "on" }
             }
             conditions {
                 condition {
@@ -523,7 +523,7 @@ class TimeTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(motionId)) { it?.state == "on" }
+                state(entity = entity(motionId)) { it?.stateRaw == "on" }
             }
             conditions {
                 condition {
@@ -557,7 +557,7 @@ class TimeTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(motionId)) { it?.state == "on" }
+                state(entity = entity(motionId)) { it?.stateRaw == "on" }
             }
             conditions {
                 condition {
@@ -594,7 +594,7 @@ class TimeTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(motionId)) { it?.state == "on" }
+                state(entity = entity(motionId)) { it?.stateRaw == "on" }
             }
             conditions {
                 condition {
@@ -629,7 +629,7 @@ class TimeTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(motionId)) { it?.state == "on" }
+                state(entity = entity(motionId)) { it?.stateRaw == "on" }
             }
             conditions {
                 condition {
@@ -678,7 +678,7 @@ class TimeTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(motionId)) { it?.state == "on" }
+                state(entity = entity(motionId)) { it?.stateRaw == "on" }
             }
             conditions {
                 condition {
@@ -712,7 +712,7 @@ class TimeTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(motionId)) { it?.state == "on" }
+                state(entity = entity(motionId)) { it?.stateRaw == "on" }
             }
             conditions {
                 condition {

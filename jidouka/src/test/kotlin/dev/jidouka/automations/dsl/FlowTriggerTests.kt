@@ -262,7 +262,7 @@ class FlowTriggerTests : BaseUnitTest() {
             }
             conditions {
                 condition {
-                    entity(personEntityId).state()?.state == "home"
+                    entity(personEntityId).state()?.stateRaw == "home"
                 }
             }
             actions {
@@ -485,7 +485,7 @@ class FlowTriggerTests : BaseUnitTest() {
             mode = AutomationMode.Single
         ) {
             triggers {
-                state(entity = entity(motionId)) { it?.state == "on" }
+                state(entity = entity(motionId)) { it?.stateRaw == "on" }
             }
             actions {
                 flowContext = triggered.flow()
@@ -549,7 +549,7 @@ class FlowTriggerTests : BaseUnitTest() {
         ) {
             val temperatureEntity = entity(temperatureId)
             triggers {
-                val temperature = observe(temperatureEntity).mapNotNull { it?.state }
+                val temperature = observe(temperatureEntity).mapNotNull { it?.stateRaw }
                 flow(temperature) { it.isNotEmpty() }
             }
             actions {
@@ -581,7 +581,7 @@ class FlowTriggerTests : BaseUnitTest() {
             val temperatureEntity = entity(temperatureId)
             triggers {
                 val rollingAvg = observe(temperatureEntity)
-                    .mapNotNull { it?.state?.toDoubleOrNull() }
+                    .mapNotNull { it?.stateRaw?.toDoubleOrNull() }
                     .runningFold(emptyList<Double>()) { window, v -> (window + v).takeLast(3) }
                     .map {
                         if (it.isEmpty()) {
@@ -630,8 +630,8 @@ class FlowTriggerTests : BaseUnitTest() {
             val temperatureEntity = entity(temperatureId)
             val humidityEntity = entity(humidityId)
             triggers {
-                val temperature = observe(temperatureEntity).mapNotNull { it?.state?.toDoubleOrNull() }
-                val humidity = observe(humidityEntity).mapNotNull { it?.state?.toDoubleOrNull() }
+                val temperature = observe(temperatureEntity).mapNotNull { it?.stateRaw?.toDoubleOrNull() }
+                val humidity = observe(humidityEntity).mapNotNull { it?.stateRaw?.toDoubleOrNull() }
 
                 val heatIndex = combine(temperature, humidity) { t, h ->
                     t + (0.5 * h)
