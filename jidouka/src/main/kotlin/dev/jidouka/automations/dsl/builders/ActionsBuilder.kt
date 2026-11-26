@@ -33,7 +33,8 @@ public class ActionsBuilder internal constructor(
     public val automations: AutomationsScope =
         AutomationsScope(automationRegistry)
     public val triggered: TriggeredScope = TriggeredScope(
-        context = triggerContext
+        context = triggerContext,
+        entityRegistry = entityRegistry,
     )
 
     public val time: TimeAccess = TimeAccess(

@@ -16,8 +16,10 @@ import dev.jidouka.registry.EntityRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withTimeoutOrNull
@@ -41,7 +43,8 @@ public class ConditionsBuilder internal constructor(
 
     public val automations: AutomationsQuery = AutomationsScope(automationRegistry)
     public val triggered: TriggeredScope = TriggeredScope(
-        context = triggerContext
+        context = triggerContext,
+        entityRegistry = entityRegistry,
     )
 
     public val time: TimeAccess = TimeAccess(
@@ -65,7 +68,7 @@ public class ConditionsBuilder internal constructor(
     }
 
     internal suspend fun evaluate(): Boolean {
-        val conditions = build()
+        val conditions: List<suspend () -> Boolean> = build()
 
         if (conditions.isEmpty()) {
             logger.debug { "No conditions to evaluate, returning true" }
@@ -75,26 +78,25 @@ public class ConditionsBuilder internal constructor(
         logger.debug { "Evaluating ${conditions.size} condition(s)" }
 
         try {
-            val result = if (conditions.size == 1) {
-                conditions.first().invoke()
-            } else {
-                withTimeoutOrNull(conditionsEvaluationTimeOut) {
-                    conditions
-                        .asFlow()
-                        .flatMapMerge { condition ->
-                            flow {
-                                try {
-                                    emit(condition())
-                                } catch (exception: Exception) {
-                                    logger.warn(exception) { "Condition threw exception, treating as false" }
-                                    emit(false)
+            val result = withTimeoutOrNull(conditionsEvaluationTimeOut) {
+                conditions
+                    .asFlow()
+                    .flatMapMerge { condition ->
+                        flow {
+                            try {
+                                emit(condition())
+                            } catch (exception: Exception) {
+                                if (exception is CancellationException) {
+                                    currentCoroutineContext().ensureActive()
                                 }
+                                logger.warn(exception) { "Condition threw exception, treating as false" }
+                                emit(false)
                             }
-                        }.first { it }
-                } ?: run {
-                    logger.warn { "Condition evaluation timed out after ${conditionsEvaluationTimeOut.inWholeSeconds}s" }
-                    false
-                }
+                        }
+                    }.firstOrNull { it } != null
+            } ?: run {
+                logger.warn { "Condition evaluation timed out after ${conditionsEvaluationTimeOut.inWholeSeconds}s" }
+                false
             }
 
             logger.debug { "Conditions evaluated to: $result" }
