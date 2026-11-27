@@ -27,6 +27,20 @@ internal class EntityRegistry internal constructor(
         return get(entityId, domain)
     }
 
+    /**
+     * Returns the cached entity for [entityId], building it on the first call.
+     *
+     * The first call picks the parser, most specific first: the parser registered for [entityId], then the
+     * registered domain's, then [domain]'s own, then [GenericState.parser]. Every lookup asks for that most specific
+     * type or a supertype of it, so the cast to [S] holds whichever overload or caller asks first.
+     *
+     * @param entityId The entity to look up, e.g. `light.chaos_emeralds`
+     * @param domain The domain [entityId] belongs to. Its parser is used only when no more specific one is registered
+     * @return The cached entity, typed as [S]. If [S] is unrelated to the parser the entity was built with, such as a
+     * sibling per-entity class, using its state throws [ClassCastException]
+     * @throws IllegalArgumentException If [entityId]'s domain isn't [domain]
+     */
+    @Throws(IllegalArgumentException::class)
     fun <S : BaseState> get(
         entityId: String,
         domain: Domain<S>,
@@ -44,11 +58,14 @@ internal class EntityRegistry internal constructor(
 
             val registeredDomain = DomainParserRegistry.getDomain(domainId = domain.id) ?: domain
 
-            val parser = registeredDomain.entityParser ?: GenericState.parser
+            val parser = DomainParserRegistry.getEntityParser(entityId)
+                ?: registeredDomain.entityParser
+                ?: GenericState.parser
+
             createTypedEntity(
                 entityId = entityId,
                 parser = parser as BaseState.Parser<S>,
-                domain = registeredDomain as Domain<S>
+                domain = registeredDomain
             )
         } as Entity<S>
 
@@ -73,7 +90,7 @@ internal class EntityRegistry internal constructor(
     private fun <S : BaseState> createTypedEntity(
         entityId: String,
         parser: BaseState.Parser<S>,
-        domain: Domain<S>,
+        domain: Domain<*>,
     ): Entity<S> {
         val parts = EntityIdParts.parse(entityId)
 

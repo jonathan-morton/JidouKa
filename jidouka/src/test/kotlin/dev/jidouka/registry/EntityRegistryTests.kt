@@ -2,6 +2,7 @@ package dev.jidouka.registry
 
 import dev.jidouka.BaseUnitTest
 import dev.jidouka.aliases.EntityId
+import dev.jidouka.automations.dsl.providers.RegistryEntityProvider
 import dev.jidouka.components.Domain
 import dev.jidouka.components.Entity
 import dev.jidouka.components.GenericState
@@ -14,6 +15,8 @@ import kotlinx.coroutines.test.TestScope
 import org.junit.After
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertSame
 import kotlin.time.Instant
 
@@ -141,4 +144,106 @@ class EntityRegistryTests : BaseUnitTest() {
     }
     //endregion
 
+    //region per-entity parsers
+    @Test
+    fun `per-entity parser wins when the entity is first asked for through its domain`() = runTestScope {
+        registerZoneParsers()
+        val stateRegistry = HomeAssistantStateRegistry()
+        val registry = newRegistry(stateRegistry)
+
+        val throughDomain: Entity<TestState> = registry.get(TestState.ZONE_ENTITY_ID, TYPED_DOMAIN)
+        val named: Entity<TestState.Zone> = registry.get(TestState.ZONE_ENTITY_ID, ZONE_DOMAIN)
+        stateRegistry.setCurrentState(TestState.ZONE_ENTITY_ID, stateObject(TestState.ZONE_ENTITY_ID, ON))
+
+        assertSame<Entity<*>>(throughDomain, named)
+        assertIs<TestState.Zone>(named.cachedState)
+    }
+
+    @Test
+    fun `per-entity parser wins when the entity is first asked for by its own type`() = runTestScope {
+        registerZoneParsers()
+        val stateRegistry = HomeAssistantStateRegistry()
+        val registry = newRegistry(stateRegistry)
+
+        val named: Entity<TestState.Zone> = registry.get(TestState.ZONE_ENTITY_ID, ZONE_DOMAIN)
+        val throughDomain: Entity<TestState> = registry.get(TestState.ZONE_ENTITY_ID, TYPED_DOMAIN)
+        stateRegistry.setCurrentState(TestState.ZONE_ENTITY_ID, stateObject(TestState.ZONE_ENTITY_ID, ON))
+
+        assertSame<Entity<*>>(named, throughDomain)
+        assertIs<TestState.Zone>(throughDomain.cachedState)
+    }
+
+    @Test
+    fun `per-entity parser wins over a generic lookup`() = runTestScope {
+        registerZoneParsers()
+        val stateRegistry = HomeAssistantStateRegistry()
+        val registry = newRegistry(stateRegistry)
+
+        val generic: Entity<GenericState> = registry.get(TestState.ZONE_ENTITY_ID)
+        val named: Entity<TestState.Zone> = registry.get(TestState.ZONE_ENTITY_ID, ZONE_DOMAIN)
+        stateRegistry.setCurrentState(TestState.ZONE_ENTITY_ID, stateObject(TestState.ZONE_ENTITY_ID, ON))
+
+        assertSame<Entity<*>>(generic, named)
+        assertIs<TestState.Zone>(generic.cachedState)
+    }
+
+    @Test
+    fun `per-entity parser applies without a registered domain`() = runTestScope {
+        DomainParserRegistry.registerEntityParser(TestState.ZONE_ENTITY_ID, TestState.Zone.parser)
+        val stateRegistry = HomeAssistantStateRegistry()
+        val registry = newRegistry(stateRegistry)
+
+        val entity = registry.get(TestState.ZONE_ENTITY_ID, UNTYPED_DOMAIN)
+        stateRegistry.setCurrentState(TestState.ZONE_ENTITY_ID, stateObject(TestState.ZONE_ENTITY_ID, ON))
+
+        assertIs<TestState.Zone>(entity.cachedState)
+    }
+
+    @Test
+    fun `other entities in the domain keep the domain parser`() = runTestScope {
+        registerZoneParsers()
+        val stateRegistry = HomeAssistantStateRegistry()
+        val registry = newRegistry(stateRegistry)
+
+        val other = registry.get(OTHER_ENTITY_ID, TYPED_DOMAIN)
+        stateRegistry.setCurrentState(OTHER_ENTITY_ID, stateObject(OTHER_ENTITY_ID, OFF))
+
+        val state = assertIs<TestState>(other.cachedState)
+        assertFalse(state is TestState.Zone)
+    }
+
+    @Test
+    fun `a list of domain entities holds the per-entity instance`() = runTestScope {
+        registerZoneParsers()
+        val stateRegistry = HomeAssistantStateRegistry()
+        stateRegistry.setInitialState(TestState.ZONE_ENTITY_ID, stateObject(TestState.ZONE_ENTITY_ID, ON))
+        stateRegistry.setInitialState(OTHER_ENTITY_ID, stateObject(OTHER_ENTITY_ID, OFF))
+        val provider = RegistryEntityProvider(newRegistry(stateRegistry))
+
+        val all: List<Entity<TestState>> = provider.byDomain(TYPED_DOMAIN)
+        val named: Entity<TestState.Zone> = provider.entity(TestState.ZONE_ENTITY_ID, ZONE_DOMAIN)
+        val built: List<Entity<TestState>> = listOf(named, provider.entity(OTHER_ENTITY_ID, TYPED_DOMAIN))
+
+        val zoneInAll = all.single { it.entityId == TestState.ZONE_ENTITY_ID }
+        assertSame<Entity<*>>(named, zoneInAll)
+        assertIs<TestState.Zone>(zoneInAll.cachedState)
+        assertSame<Entity<*>>(named, built.first())
+    }
+
+    private fun registerZoneParsers() {
+        DomainParserRegistry.register(TYPED_DOMAIN)
+        DomainParserRegistry.registerEntityParser(TestState.ZONE_ENTITY_ID, TestState.Zone.parser)
+    }
+    //endregion
+
+    private companion object {
+        val TYPED_DOMAIN = Domain(TestState.TEST_DOMAIN, TestState.parser)
+        val UNTYPED_DOMAIN = Domain<GenericState>(TestState.TEST_DOMAIN)
+
+        /** How a generated named property asks for its entity: its own type, no parser. */
+        val ZONE_DOMAIN = Domain<TestState.Zone>(TestState.TEST_DOMAIN)
+        const val OTHER_ENTITY_ID = "${TestState.TEST_DOMAIN}.other"
+        const val ON = "on"
+        const val OFF = "off"
+    }
 }

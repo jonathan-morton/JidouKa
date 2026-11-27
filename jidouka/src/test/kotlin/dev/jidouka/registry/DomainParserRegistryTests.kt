@@ -1,6 +1,9 @@
+@file:Suppress("KotlinMisorderedAssertEqualsArguments")
+
 package dev.jidouka.registry
 
 import dev.jidouka.BaseUnitTest
+import dev.jidouka.components.BaseState
 import dev.jidouka.components.Domain
 import dev.jidouka.components.TestState
 import org.junit.After
@@ -30,7 +33,7 @@ class DomainParserRegistryTests : BaseUnitTest() {
 
         val domain = DomainParserRegistry.getDomain(TestState.TEST_DOMAIN)
 
-        assertSame(TestState.parser, domain?.entityParser)
+        assertSame<BaseState.Parser<*>?>(TestState.parser, domain?.entityParser)
     }
 
     @Test
@@ -40,7 +43,7 @@ class DomainParserRegistryTests : BaseUnitTest() {
 
         val domain = DomainParserRegistry.getDomain(TestState.TEST_DOMAIN)
 
-        assertSame(TestState.parser, domain?.entityParser)
+        assertSame<BaseState.Parser<*>?>(TestState.parser, domain?.entityParser)
     }
 
     @Test
@@ -83,5 +86,46 @@ class DomainParserRegistryTests : BaseUnitTest() {
 
         assertTrue(firstResult)
         assertTrue(secondResult)
+    }
+
+    @Test
+    fun `installFromClasspath discovers the test provider's entity parsers`() {
+        DomainParserRegistry.installFromClasspath()
+
+        assertSame(TestState.Zone.parser, DomainParserRegistry.getEntityParser(TestState.ZONE_ENTITY_ID))
+    }
+
+    @Test
+    fun `unknown entity parser lookup returns null`() {
+        assertNull(DomainParserRegistry.getEntityParser(UNKNOWN_ENTITY_ID))
+    }
+
+    @Test
+    fun `registerEntityParser returns true for a clean registration`() {
+        val result = DomainParserRegistry.registerEntityParser(TestState.ZONE_ENTITY_ID, TestState.Zone.parser)
+
+        assertTrue(result)
+    }
+
+    @Test
+    fun `registerEntityParser returns false when re-registering an entity id`() {
+        DomainParserRegistry.registerEntityParser(TestState.ZONE_ENTITY_ID, TestState.Zone.parser)
+
+        val result = DomainParserRegistry.registerEntityParser(TestState.ZONE_ENTITY_ID, TestState.parser)
+
+        assertFalse(result)
+    }
+
+    @Test
+    fun `reset clears entity parsers`() {
+        DomainParserRegistry.registerEntityParser(TestState.ZONE_ENTITY_ID, TestState.Zone.parser)
+
+        DomainParserRegistry.reset()
+
+        assertNull(DomainParserRegistry.getEntityParser(TestState.ZONE_ENTITY_ID))
+    }
+
+    private companion object {
+        const val UNKNOWN_ENTITY_ID = "${TestState.TEST_DOMAIN}.nonexistent"
     }
 }

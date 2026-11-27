@@ -1,11 +1,16 @@
 package dev.jidouka.components
 
 /**
- * Every entity in Home Assistant belongs to a general category known as a domain
+ * Every entity in Home Assistant belongs to a general category known as a domain.
+ *
+ * Covariant, so a `Domain<LightState>` is accepted where a `Domain<GenericState>` is expected.
+ *
+ * @param id Home Assistant's domain ID, e.g. `light`
+ * @param entityParser Parses this domain's states. Read only by the library's entity registry
  */
-public class Domain<S : BaseState>(
+public class Domain<out S : BaseState>(
     public val id: String,
-    public val entityParser: BaseState.Parser<S>? = null
+    internal val entityParser: BaseState.Parser<@UnsafeVariance S>? = null
 ) {
     public companion object {
         public val BinarySensor: Domain<GenericState> = Domain("binary_sensor")
