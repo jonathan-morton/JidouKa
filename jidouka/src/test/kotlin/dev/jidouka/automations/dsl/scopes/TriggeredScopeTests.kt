@@ -4,6 +4,7 @@ import dev.jidouka.BaseUnitTest
 import dev.jidouka.aliases.EntityId
 import dev.jidouka.automations.dsl.triggers.TriggerContext
 import dev.jidouka.components.Domain
+import dev.jidouka.components.Entity
 import dev.jidouka.components.GenericState
 import dev.jidouka.components.StateObject
 import dev.jidouka.components.StateTransition
@@ -158,5 +159,42 @@ class TriggeredScopeTests : BaseUnitTest() {
         val triggered = TriggeredScope(combined, registry)
 
         assertNull(triggered.state(listOf(first, second)))
+    }
+
+    @Test
+    fun `state with a domain returns the per-entity type`() = runTestScope {
+        registerZoneParsers()
+        val triggered = TriggeredScope(singleState(TestState.ZONE_ENTITY_ID), newRegistry())
+
+        val result = triggered.state(typedTestDomain)
+
+        assertNotNull(result)
+        assertIs<TestState.Zone>(result.state)
+        assertIs<TestState.Zone>(result.previousState)
+    }
+
+    @Test
+    fun `state with a list returns the per-entity type`() = runTestScope {
+        registerZoneParsers()
+        val registry = newRegistry()
+        val zone: Entity<TestState.Zone> = registry.get(TestState.ZONE_ENTITY_ID, ZONE_DOMAIN)
+        val other = registry.get(OTHER_ENTITY_ID, typedTestDomain)
+        val triggered = TriggeredScope(singleState(zone.entityId), registry)
+
+        val result = triggered.state(listOf(other, zone))
+
+        assertNotNull(result)
+        assertIs<TestState.Zone>(result.state)
+        assertIs<TestState.Zone>(result.previousState)
+    }
+
+    private fun registerZoneParsers() {
+        DomainParserRegistry.register(typedTestDomain)
+        DomainParserRegistry.registerEntityParser(TestState.ZONE_ENTITY_ID, TestState.Zone.parser)
+    }
+
+    private companion object {
+        val ZONE_DOMAIN = Domain<TestState.Zone>(TestState.TEST_DOMAIN)
+        const val OTHER_ENTITY_ID = "${TestState.TEST_DOMAIN}.other"
     }
 }

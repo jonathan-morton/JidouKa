@@ -19,10 +19,19 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlin.time.Instant
 
-public class Entity<S : BaseState> internal constructor(
+/**
+ * A Home Assistant entity, with its state parsed as [S].
+ *
+ * Covariant, so an `Entity<LightState.ChaosEmeralds>` is accepted where an `Entity<LightState>` is expected,
+ * including in a `List<Entity<LightState>>`.
+ *
+ * @param domain The domain this entity belongs to. Typed as a domain of some [BaseState], because a per-entity state class
+ * such as `LightState.ChaosEmeralds` isn't its domain's state type.
+ */
+public class Entity<out S : BaseState> internal constructor(
     objectId: String,
-    public val domain: Domain<S>,
-    private val parser: BaseState.Parser<S>,
+    public val domain: Domain<*>,
+    private val parser: BaseState.Parser<@UnsafeVariance S>,
     private val stateRegistry: StateRegistry,
     private val ensureSubscribedUseCase: EnsureEntitySubscribedAndCurrentUseCase,
     private val scope: CoroutineScope
